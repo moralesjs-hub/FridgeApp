@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
 from PIL import Image
 
 from src.utils import ingredient_from_label
@@ -38,18 +37,15 @@ class FoodRecognizer:
                 mobilenet_v3_small,
             )
 
-            weights = MobileNet_V3_Small_Weights.DEFAULT
-            model = mobilenet_v3_small(weights=weights)
-            model.eval()
+            self._weights = MobileNet_V3_Small_Weights.DEFAULT
+            self._model = mobilenet_v3_small(weights=self._weights).eval()
+            self._transform = self._weights.transforms()
+            self._torch = torch
         except Exception as exc:
             raise RuntimeError(
                 "Could not load the pretrained MobileNetV3 model or weights. "
                 "Check the PyTorch installation and network access, then try again."
             ) from exc
-        self._torch = torch
-        self._weights = weights
-        self._transform = weights.transforms()
-        self._model = model
 
     def predict(
         self,
@@ -63,34 +59,26 @@ class FoodRecognizer:
         if top_k < 1:
             raise ValueError("top_k must be at least 1.")
         self._load_model()
-        assert self._torch is not None
-        assert self._model is not None
-        assert self._weights is not None
-        assert self._transform is not None
 
         try:
             tensor = self._transform(image.convert("RGB")).unsqueeze(0)
             with self._torch.inference_mode():
-                probabilities = self._torch.nn.functional.softmax(
+                probs = self._torch.nn.functional.softmax(
                     self._model(tensor)[0], dim=0
                 )
-            values, indices = self._torch.topk(
-                probabilities, k=min(100, probabilities.numel())
-            )
+            values, indices = self._torch.topk(probs, k=min(100, probs.numel()))
         except Exception as exc:
             raise RuntimeError("The uploaded image could not be classified.") from exc
 
         categories = self._weights.meta["categories"]
         predictions: list[Prediction] = []
         seen: set[str] = set()
-        for probability, index in zip(values.tolist(), indices.tolist()):
-            if probability < confidence_threshold:
+        for prob, idx in zip(values.tolist(), indices.tolist()):
+            if prob < confidence_threshold or len(predictions) >= top_k:
                 break
-            label = categories[index]
+            label = categories[idx]
             ingredient = ingredient_from_label(label)
             if ingredient and ingredient not in seen:
-                predictions.append(Prediction(ingredient, probability, label))
+                predictions.append(Prediction(ingredient, prob, label))
                 seen.add(ingredient)
-            if len(predictions) >= top_k:
-                break
         return predictions

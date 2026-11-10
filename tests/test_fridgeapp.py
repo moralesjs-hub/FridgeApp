@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from PIL import Image
+import streamlit as st
 from streamlit.testing.v1 import AppTest
+from streamlit.testing.v1.element_tree import UnknownElement
 
 from src.app import ROOT, _predict_uploaded_image, _read_image
 from src.nutrition import benchmark_percent, estimate_nutrition
@@ -18,35 +21,27 @@ from src.vision_model import FoodRecognizer
 
 def test_recipe_catalog_has_valid_diverse_starter_data() -> None:
     matcher = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv")
-
     assert len(matcher.recipes) >= 25
-    assert len({recipe["id"] for recipe in matcher.recipes}) == len(matcher.recipes)
-    assert all(recipe["ingredients"] for recipe in matcher.recipes)
-    assert all(recipe["instructions"] for recipe in matcher.recipes)
+    assert len({r["id"] for r in matcher.recipes}) == len(matcher.recipes)
+    assert all(r["ingredients"] and r["instructions"] for r in matcher.recipes)
 
 
 def test_recipe_matching_reports_exact_overlap_and_missing_items() -> None:
     matcher = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv")
-
     results = matcher.match(["eggs", "sliced spinach", "tomato", "cheddar cheese"])
-
-    omelet = next(recipe for recipe in results if recipe["id"] == "R001")
+    omelet = next(r for r in results if r["id"] == "R001")
     assert omelet["match_score"] == 1
     assert set(omelet["matched_ingredients"]) == {"egg", "spinach", "tomato", "cheese"}
     assert omelet["missing_ingredients"] == []
     assert results == sorted(
-        results, key=lambda recipe: (-recipe["match_score"], recipe["name"].casefold())
+        results, key=lambda r: (-r["match_score"], r["name"].casefold())
     )
 
 
 def test_empty_ingredient_list_has_zero_scores_without_crashing() -> None:
-    matcher = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv")
-
-    results = matcher.match([])
-
+    results = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv").match([])
     assert results
-    assert all(recipe["match_score"] == 0 for recipe in results)
-    assert all(not recipe["matched_ingredients"] for recipe in results)
+    assert all(r["match_score"] == 0 and not r["matched_ingredients"] for r in results)
 
 
 def test_recipe_catalog_errors_are_actionable(tmp_path: Path) -> None:
@@ -65,7 +60,6 @@ def test_recipe_catalog_errors_are_actionable(tmp_path: Path) -> None:
 
 def test_nutrition_scales_values_and_rejects_bad_servings() -> None:
     recipe = {"calories_per_serving": 320, "protein_g": 22, "carbs_g": None}
-
     assert estimate_nutrition(recipe, 2) == {
         "calories_per_serving": 640,
         "protein_g": 44,
@@ -97,7 +91,6 @@ def test_ingredient_normalization_and_label_mapping() -> None:
 
 def test_sample_images_decode_and_invalid_upload_is_reported() -> None:
     samples = list((ROOT / "data" / "raw").glob("sample_*.png"))
-
     assert len(samples) == 3
     assert all(_read_image(path).mode == "RGB" for path in samples)
     with pytest.raises(ValueError, match="valid JPG or PNG"):
@@ -107,7 +100,6 @@ def test_sample_images_decode_and_invalid_upload_is_reported() -> None:
 def test_recognizer_rejects_invalid_parameters_before_model_loading() -> None:
     recognizer = FoodRecognizer()
     image = Image.new("RGB", (4, 4))
-
     with pytest.raises(ValueError, match="between 0 and 1"):
         recognizer.predict(image, confidence_threshold=1.1)
     with pytest.raises(ValueError, match="at least 1"):
@@ -133,9 +125,9 @@ def test_uploaded_image_predictions_are_cached_by_image_and_threshold(
 
     first = _predict_uploaded_image("test-image", 0.15, image_bytes)
     repeated = _predict_uploaded_image("test-image", 0.15, image_bytes)
-    changed_threshold = _predict_uploaded_image("test-image", 0.25, image_bytes)
+    changed = _predict_uploaded_image("test-image", 0.25, image_bytes)
 
-    assert first == repeated == changed_threshold == [("tomato", 0.9)]
+    assert first == repeated == changed == [("tomato", 0.9)]
     assert recognizer.calls == 2
     _predict_uploaded_image.clear()
 
@@ -149,13 +141,30 @@ def test_model_failure_shows_manual_fallback_without_fake_no_detection(
         def predict(self, image: Image.Image, confidence_threshold: float):
             raise RuntimeError("model unavailable for test")
 
+    uploaded: dict[str, Any] = {}
+    orig_uploader = st.file_uploader
+    monkeypatch.setattr(
+        st,
+        "file_uploader",
+        lambda *a, **k: uploaded.get("file") or orig_uploader(*a, **k),
+    )
+    monkeypatch.setattr(
+        UnknownElement,
+        "set_value",
+        lambda self, val: uploaded.update(
+            file=SimpleNamespace(name="sample_produce.png", getvalue=lambda: val)
+        )
+        or self,
+        raising=False,
+    )
     monkeypatch.setattr(vision_module, "FoodRecognizer", UnavailableRecognizer)
     _predict_uploaded_image.clear()
     app = AppTest.from_file(str(ROOT / "src" / "app.py"), default_timeout=30).run()
     sample_path = ROOT / "data" / "raw" / "sample_produce.png"
-    app.file_uploader[0].upload(
-        sample_path.name, sample_path.read_bytes(), "image/png"
-    ).run()
+
+    uploader = app.get("file_uploader")[0]
+    uploader.set_value(sample_path.read_bytes())
+    app.run()
 
     assert not app.exception
     assert any("model unavailable for test" in item.value for item in app.warning)
@@ -203,6 +212,5 @@ def test_streamlit_sample_manual_entry_and_recipe_controls() -> None:
     app.slider[2].set_value(100).run()
     assert not app.exception
     assert any(
-        "No recipes meet that match threshold" in item.value
-        for item in app.info
+        "No recipes meet that match threshold" in item.value for item in app.info
     )
