@@ -1,4 +1,4 @@
-"""Streamlit interface for local ingredient recognition and recipe discovery."""
+"""Streamlit interface for local and cloud ingredient recognition and recipe discovery."""
 
 from __future__ import annotations
 
@@ -131,43 +131,48 @@ def main() -> None:
     """Run the Streamlit application."""
     st.set_page_config(
         page_title="FridgeApp · Recipe Finder",
-        page_icon="🥗",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
+
+    # Sleek, minimalist modern styling with no decorative icons
     st.markdown(
-        "<style>.block-container {max-width: 1280px; padding-top: 2rem; padding-bottom: 3rem;}\n"
-        '[data-testid="stMetric"] {background: #f3f8f2; padding: 1rem; border-radius: 12px;}</style>',
+        """
+        <style>
+        .block-container {
+            max-width: 1200px;
+            padding-top: 2rem;
+            padding-bottom: 3.5rem;
+        }
+        h1, h2, h3, h4 {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            letter-spacing: -0.02em;
+            color: #111827;
+        }
+        [data-testid="stMetric"] {
+            background: #f9fafb;
+            padding: 0.85rem 1rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .ingredient-tag {
+            display: inline-block;
+            background: #f3f4f6;
+            color: #1f2937;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
-    st.title("🥗 FridgeApp")
-    st.markdown("### Turn what you have into something delicious.")
-    st.caption("Local computer vision · editable ingredient detection · explainable recipe matches")
 
-    with st.sidebar:
-        st.header("CSCI 270 · Applied AI")
-        st.caption("College of Charleston")
-        st.markdown("**Team**  \nPhilip Pagana · Snovi Patel  \nJaden Morales · Amelia West")
-        st.divider()
-        use_cloud = st.toggle(
-            "⚡ Cloud Vision AI (Gemini)",
-            value=bool(os.getenv("GEMINI_API_KEY") and "pytest" not in sys.modules),
-            help="High-accuracy multimodal AI detection with 2D spatial bounding boxes.",
-        )
-        st.divider()
-        confidence = st.slider(
-            "Model confidence threshold",
-            0.05, 0.90, 0.15, 0.05,
-            help="Hide lower-confidence predictions.",
-        )
-        max_results = st.slider("Maximum recipe results", 1, 12, 6)
-        min_match = st.slider("Minimum recipe match", 0, 100, 25, 5, format="%d%%")
-        servings = st.number_input("Servings for nutrition estimate", 1, 12, 1)
-        st.divider()
-        st.caption(
-            "AI ingredient recognition can make mistakes. "
-            "Review ingredients before relying on recipe suggestions."
-        )
+    st.title("FridgeApp")
+    st.caption("Ingredient recognition and recipe discovery")
 
     try:
         matcher = get_recipe_matcher()
@@ -175,148 +180,189 @@ def main() -> None:
         st.error(f"Recipe catalog error: {exc}")
         st.stop()
 
-    left, right = st.columns([1, 1], gap="large")
-    with left:
-        st.subheader("1. Add a fridge photo")
-        sample_choice = st.selectbox(
-            "Try an included sample", ["Choose a sample…", *SAMPLE_IMAGES.keys()]
+    tab_recipes, tab_settings = st.tabs(["Recipe Finder", "Settings"])
+
+    # Settings Tab (separate dedicated tab)
+    with tab_settings:
+        st.subheader("Settings & Preferences")
+        col_set1, col_set2 = st.columns(2, gap="large")
+        with col_set1:
+            st.markdown("**Computer Vision Engine**")
+            use_cloud = st.toggle(
+                "Cloud Vision AI (Gemini)",
+                value=bool(os.getenv("GEMINI_API_KEY") and "pytest" not in sys.modules),
+                help="Multimodal AI detection with 2D spatial bounding coordinates.",
+            )
+            confidence = st.slider(
+                "Model confidence threshold",
+                0.05, 0.90, 0.15, 0.05,
+                help="Hide lower-confidence predictions.",
+            )
+        with col_set2:
+            st.markdown("**Recipe Matching & Nutrition**")
+            max_results = st.slider("Maximum recipe results", 1, 12, 6)
+            min_match = st.slider("Minimum recipe match", 0, 100, 25, 5, format="%d%%")
+            servings = st.number_input("Servings for nutrition estimate", 1, 12, 1)
+
+        st.divider()
+        st.caption(
+            "CSCI 270 Applied AI · College of Charleston\n\n"
+            "Team: Philip Pagana · Snovi Patel · Jaden Morales · Amelia West\n\n"
+            "Image recognition can make mistakes. Please verify ingredients before preparing recipes."
         )
-        uploaded_file = st.file_uploader("Or upload a JPG or PNG", type=["jpg", "jpeg", "png"])
 
-        image, detections, is_demo, failed, image_source = None, [], False, False, "none"
-        annotated_image = None
-        cloud_meta: dict[str, Any] = {}
+    # Main Recipe Finder Tab
+    with tab_recipes:
+        left, right = st.columns([1, 1], gap="large")
 
-        if uploaded_file is not None:
-            data = uploaded_file.getvalue()
-            digest = sha256(data).hexdigest()
-            image_source = f"upload:{uploaded_file.name}:{digest}"
-            try:
-                image = _read_image(data)
-            except ValueError as exc:
-                st.error(str(exc))
-        elif sample_choice != "Choose a sample…":
-            image_source = f"sample:{sample_choice}"
-            sample = SAMPLE_IMAGES[sample_choice]
-            try:
-                image = _read_image(sample["path"])
-                detections = sample["ingredients"]
-                is_demo = True
-            except ValueError as exc:
-                st.error(f"Could not open the bundled sample: {exc}")
+        with left:
+            st.subheader("1. Add a fridge photo")
+            sample_choice = st.selectbox(
+                "Try an included sample", ["Choose a sample…", *SAMPLE_IMAGES.keys()]
+            )
+            uploaded_file = st.file_uploader("Or upload a JPG or PNG", type=["jpg", "jpeg", "png"])
 
-        if image is not None:
-            if is_demo:
-                st.image(image, caption="Selected image", width="stretch")
-                st.info(
-                    "Offline demo sample: ingredients are pre-seeded for a predictable "
-                    "walkthrough; these are not model predictions."
-                )
-            else:
-                if use_cloud and os.getenv("GEMINI_API_KEY"):
-                    with st.spinner("Analyzing image with Google Cloud Vision AI…"):
-                        try:
-                            cloud_service = get_cloud_vision_service()
-                            cloud_res = cloud_service.detect_ingredients(
-                                data, confidence_threshold=confidence, annotate=True
-                            )
-                            if cloud_res.success and cloud_res.entities:
-                                detections = [(e.normalized_name, e.confidence) for e in cloud_res.entities]
-                                annotated_image = cloud_res.annotated_image
-                                cloud_meta = {
-                                    "model": cloud_res.model,
-                                    "latency": cloud_res.latency_ms,
-                                    "count": len(cloud_res.entities),
-                                }
-                            elif not cloud_res.success:
-                                st.warning(f"Cloud Vision API error: {cloud_res.error}")
-                        except Exception as exc:
-                            st.warning(f"Cloud Vision notice: {exc}")
+            image, detections, is_demo, failed, image_source = None, [], False, False, "none"
+            annotated_image = None
+            cloud_meta: dict[str, Any] = {}
 
-                if not detections and not failed:
-                    with st.spinner("Running the local image classifier…"):
-                        try:
-                            detections = _predict_uploaded_image(digest, confidence, data)
-                        except RuntimeError as exc:
-                            failed = True
-                            st.warning(str(exc))
-                            st.info("Try an included sample or add ingredients manually below.")
+            if uploaded_file is not None:
+                data = uploaded_file.getvalue()
+                digest = sha256(data).hexdigest()
+                image_source = f"upload:{uploaded_file.name}:{digest}"
+                try:
+                    image = _read_image(data)
+                except ValueError as exc:
+                    st.error(str(exc))
+            elif sample_choice != "Choose a sample…":
+                image_source = f"sample:{sample_choice}"
+                sample = SAMPLE_IMAGES[sample_choice]
+                try:
+                    image = _read_image(sample["path"])
+                    detections = sample["ingredients"]
+                    is_demo = True
+                except ValueError as exc:
+                    st.error(f"Could not open the bundled sample: {exc}")
 
-                display_img = annotated_image or image
-                caption = (
-                    f"AI Spatial Grounding ({cloud_meta.get('model', 'cloud')}) · {cloud_meta.get('latency', 0):.0f} ms"
-                    if annotated_image
-                    else "Selected image"
-                )
-                st.image(display_img, caption=caption, width="stretch")
-
-                if cloud_meta:
-                    st.success(
-                        f"⚡ Cloud Vision Grounding: {cloud_meta['count']} item(s) detected "
-                        f"({cloud_meta['model']} · {cloud_meta['latency']:.0f} ms)"
-                    )
-
-                if not detections and not failed:
+            if image is not None:
+                if is_demo:
+                    st.image(image, caption="Selected sample", width="stretch")
                     st.info(
-                        "No supported ingredients were recognized at this threshold. "
-                        "Add ingredients manually or try an included sample."
+                        "Offline demo sample: ingredients are pre-seeded for a predictable "
+                        "walkthrough; these are not model predictions."
                     )
+                else:
+                    if use_cloud and os.getenv("GEMINI_API_KEY"):
+                        with st.spinner("Analyzing image with Cloud Vision AI…"):
+                            try:
+                                cloud_service = get_cloud_vision_service()
+                                cloud_res = cloud_service.detect_ingredients(
+                                    data, confidence_threshold=confidence, annotate=True
+                                )
+                                if cloud_res.success and cloud_res.entities:
+                                    detections = [(e.normalized_name, e.confidence) for e in cloud_res.entities]
+                                    annotated_image = cloud_res.annotated_image
+                                    cloud_meta = {
+                                        "model": cloud_res.model,
+                                        "latency": cloud_res.latency_ms,
+                                        "count": len(cloud_res.entities),
+                                    }
+                                elif not cloud_res.success:
+                                    st.warning(f"Cloud Vision API error: {cloud_res.error}")
+                            except Exception as exc:
+                                st.warning(f"Cloud Vision notice: {exc}")
 
-    with right:
-        st.subheader("2. Review your ingredients")
-        detected_names = [name for name, _ in detections]
-        if st.session_state.get("_ingredient_source") != image_source:
-            st.session_state["selected_ingredients"] = detected_names
-            st.session_state["_ingredient_source"] = image_source
-        selected_defaults = st.session_state.get("selected_ingredients", detected_names)
-        options = sorted(set(COMMON_INGREDIENTS) | set(detected_names) | set(selected_defaults))
-        selected_ingredients = st.multiselect(
-            "Detected and pantry ingredients",
-            options=options,
-            key="selected_ingredients",
-            help="Remove false detections or add ingredients from your pantry.",
-        )
-        if detections:
-            st.markdown("**Current image detections**")
-            badges = [f"`{n}` · {s:.0%}" for n, s in detections if n in selected_ingredients]
-            st.markdown("  ".join(badges) if badges else "No detected items selected.")
+                    if not detections and not failed:
+                        with st.spinner("Running the local image classifier…"):
+                            try:
+                                detections = _predict_uploaded_image(digest, confidence, data)
+                            except RuntimeError as exc:
+                                failed = True
+                                st.warning(str(exc))
+                                st.info("Try an included sample or add ingredients manually below.")
 
-        extra = st.text_input(
-            "Add another ingredient",
-            placeholder="For example: rice, garlic",
-            help=(
-                "Separate multiple ingredients with commas, then press Enter. "
-                "Clear the field to remove these manual additions."
-            ),
-        )
-        confirmed = normalize_ingredients(
-            [*selected_ingredients, *normalize_ingredients(extra.split(","))]
-        )
+                    display_img = annotated_image or image
+                    caption = (
+                        f"Detected Items ({cloud_meta.get('model', 'cloud')}) · {cloud_meta.get('latency', 0):.0f} ms"
+                        if annotated_image
+                        else "Selected image"
+                    )
+                    st.image(display_img, caption=caption, width="stretch")
 
+                    if cloud_meta:
+                        st.success(
+                            f"Cloud Vision Grounding: {cloud_meta['count']} item(s) detected "
+                            f"({cloud_meta['model']} · {cloud_meta['latency']:.0f} ms)"
+                        )
+
+                    if not detections and not failed:
+                        st.info(
+                            "No supported ingredients were recognized at this threshold. "
+                            "Add ingredients manually or try an included sample."
+                        )
+
+        with right:
+            st.subheader("2. Review your ingredients")
+            detected_names = [name for name, _ in detections]
+            if st.session_state.get("_ingredient_source") != image_source:
+                st.session_state["selected_ingredients"] = detected_names
+                st.session_state["_ingredient_source"] = image_source
+            selected_defaults = st.session_state.get("selected_ingredients", detected_names)
+            options = sorted(set(COMMON_INGREDIENTS) | set(detected_names) | set(selected_defaults))
+            selected_ingredients = st.multiselect(
+                "Detected and pantry ingredients",
+                options=options,
+                key="selected_ingredients",
+                help="Remove false detections or add ingredients from your pantry.",
+            )
+            if detections:
+                st.markdown("**Detected Items**")
+                tags_html = "".join([
+                    f'<span class="ingredient-tag">{n} · {s:.0%}</span>'
+                    for n, s in detections
+                    if n in selected_ingredients
+                ])
+                if tags_html:
+                    st.markdown(tags_html, unsafe_allow_html=True)
+                else:
+                    st.caption("No detected items currently selected.")
+
+            extra = st.text_input(
+                "Add another ingredient",
+                placeholder="For example: rice, garlic",
+                help=(
+                    "Separate multiple ingredients with commas, then press Enter. "
+                    "Clear the field to remove these manual additions."
+                ),
+            )
+            confirmed = normalize_ingredients(
+                [*selected_ingredients, *normalize_ingredients(extra.split(","))]
+            )
+
+            if not confirmed:
+                st.info("Choose a sample, upload a photo, or add ingredients to get started.")
+            else:
+                st.success(f"{len(confirmed)} ingredient(s): " + ", ".join(confirmed))
+
+        st.divider()
+        st.subheader("3. Recipes you can make")
         if not confirmed:
-            st.info("Choose a sample, upload a photo, or add ingredients to get started.")
-        else:
-            st.success(f"{len(confirmed)} ingredient(s): " + ", ".join(confirmed))
+            st.info("Your recipe matches will appear here once you add ingredients.")
+            return
 
-    st.divider()
-    st.subheader("3. Recipes you can make")
-    if not confirmed:
-        st.info("Your recipe matches will appear here once you add ingredients.")
-        return
+        qualifying = [
+            r for r in matcher.match(confirmed) if r["match_score"] * 100 >= min_match
+        ][:max_results]
+        if not qualifying:
+            st.info("No recipes meet that match threshold. Lower the minimum match or add more ingredients.")
+            return
 
-    qualifying = [
-        r for r in matcher.match(confirmed) if r["match_score"] * 100 >= min_match
-    ][:max_results]
-    if not qualifying:
-        st.info("No recipes meet that match threshold. Lower the minimum match or add more ingredients.")
-        return
-
-    st.caption(
-        f"Ranked by ingredient coverage · {len(qualifying)} recipe(s) shown · "
-        "scores do not account for ingredient quantities or substitutions."
-    )
-    for recipe in qualifying:
-        _render_recipe(recipe, int(servings))
+        st.caption(
+            f"Ranked by ingredient coverage · {len(qualifying)} recipe(s) shown · "
+            "scores do not account for ingredient quantities or substitutions."
+        )
+        for recipe in qualifying:
+            _render_recipe(recipe, int(servings))
 
 
 if __name__ == "__main__":

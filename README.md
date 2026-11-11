@@ -79,7 +79,6 @@ docs/cloud_vision_evaluation.md    Comprehensive Cloud Vision API comparison & e
 docs/project_proposal.md           Team proposal and timeline
 docs/project_design_doc.md         Architecture and data flow specification
 main.py                            Production FastAPI backend service
-gemini_service.py                  Gemini multimodal service adapter
 src/app.py                         Interactive Streamlit frontend interface
 src/cloud_vision.py                Cloud multimodal vision, grounding & Pillow annotation
 src/vision_model.py                Local fallback image classifier (MobileNetV3)
