@@ -293,18 +293,26 @@ def test_food_detector_merges_rcnn_and_classifier_results(monkeypatch) -> None:
     assert apple_entity.box is not None
 
 
-def test_food_detector_to_dict_serialisable() -> None:
-    entity = DetectedEntity(
-        ingredient="carrot",
-        confidence=0.88,
-        source="coco_detector",
-        category="produce",
-        box=BoundingBox(0.2, 0.3, 0.7, 0.8),
-    )
-    d = entity.to_dict()
-    assert d["ingredient"] == "carrot"
-    assert isinstance(d["box"], dict)
-    assert all(k in d["box"] for k in ("ymin", "xmin", "ymax", "xmax"))
+def test_food_detector_shelf_crop_generation() -> None:
+    detector = FoodDetector()
+    img = Image.new("RGB", (600, 900))
+    crops = detector._generate_shelf_crops(img, grid_rows=3, grid_cols=2)
+    assert len(crops) == 6
+    patch, box = crops[0]
+    assert patch.size[0] > 0 and patch.size[1] > 0
+    assert 0.0 <= box.ymin < box.ymax <= 1.0
+
+
+def test_recipe_engine_inverted_index() -> None:
+    matcher = RecipeMatcher(RECIPES_CSV)
+    assert hasattr(matcher, "_inverted_index")
+    assert "chicken" in matcher._inverted_index
+    assert len(matcher._inverted_index["chicken"]) > 5
+    # Verify indexed recipe IDs contain chicken
+    for recipe_idx in matcher._inverted_index["chicken"]:
+        recipe = matcher.recipes[recipe_idx]
+        assert "chicken" in recipe["core_ingredients"]
+
 
 
 def test_food_detector_model_errors_reported() -> None:

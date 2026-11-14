@@ -3,68 +3,74 @@
 ## System overview
 
 ```mermaid
-flowchart LR
-    U[User: upload or sample image] --> UI[Streamlit interface]
-    UI -->|Uploaded image| V[MobileNetV3-Small / ImageNet]
-    UI -->|Bundled sample| D[Documented deterministic demo detections]
-    V --> M[Ingredient normalization and confidence filter]
-    D --> M
-    M --> E[User reviews and edits ingredients]
-    E --> R[Recipe overlap ranking]
-    C[data/processed/recipes.csv] --> R
-    R --> N[Serving-aware nutrition estimates]
+flowchart TD
+    U[User: Upload or Sample Image] --> UI[Streamlit Interface]
+    UI -->|Uploaded image| P[Two-Stage Detection Pipeline]
+    UI -->|Bundled sample| D[Documented Deterministic Detections]
+    
+    subgraph Vision Pipeline ["src/detector.py & src/vision_model.py"]
+        P --> S1[Stage 1: Faster R-CNN MobileNetV3 FPN / COCO]
+        P --> S2[Stage 2: MobileNetV3-Small / ImageNet]
+        S1 -->|Bounding boxes & COCO food classes| M[Detection Merger & Deduplicator]
+        S2 -->|Extended food vocabulary classification| M
+        M --> AN[Box Annotation & Color Coding]
+    end
+
+    D --> UI
+    AN --> UI
+    M --> IN[Normalized Ingredient Set]
+    
+    subgraph Recipe Engine ["src/recipe_engine.py & src/utils.py"]
+        IN --> RE[Staple-Aware Weighted Matcher]
+        PS[Pantry Staples Set: Salt, Pepper, Oil, etc.] --> RE
+        SUB[Culinary Substitutions Dict] --> RE
+        DB[(data/processed/recipes.csv - 120 Recipes)] --> RE
+        RE --> SC[Core vs. Staple Weight Scoring & Substitution Credit]
+    end
+
+    SC --> N[Serving-Aware Nutrition Scaling]
     N --> UI
 ```
 
 ## Modules and data flow
 
-- `src/app.py` owns Streamlit state, image upload/sample selection, controls, and rendering. Uploaded images are read in memory and not saved.
-- `src/vision_model.py` lazily initializes torchvision's pretrained MobileNetV3-Small, transforms an image, computes class probabilities, and maps supported labels to ingredients.
-- `src/utils.py` provides shared text normalization and ingredient aliases used on both sides of matching.
-- `src/recipe_engine.py` reads and validates the curated CSV, then calculates the overlap score and missing ingredient list.
-- `src/nutrition.py` validates serving counts and scales per-serving calorie and macro estimates.
-- `data/raw/` holds illustrative sample inputs and documentation about optional source datasets. `data/processed/recipes.csv` is the application's cleaned, curated recipe catalog.
+- `src/app.py` owns Streamlit state, image upload/sample selection, controls, and rendering.
+- `src/detector.py` orchestrates the two-stage local vision detection: Faster R-CNN provides spatial bounding boxes on common items, while MobileNetV3-Small classifies whole-scene food categories to support non-COCO items. Also provides bounding box drawing with culinary category color palettes.
+- `src/vision_model.py` provides standalone MobileNetV3-Small classification for backward compatibility.
+- `src/utils.py` manages text normalization, an alias dictionary with 200+ food terms, non-perishable pantry staples definitions, and common culinary substitutions.
+- `src/recipe_engine.py` reads and validates `recipes.csv` (60 recipes across breakfast, lunch, dinner, and sides), scores recipes taking pantry staples and substitutions into account.
+- `src/nutrition.py` validates serving counts and scales per-serving calories and macronutrient estimates.
+- `data/raw/` holds sample demonstration inputs.
+- `data/processed/recipes.csv` contains the curated 120-recipe dataset.
 
 ### Image path
 
-An uploaded JPG or PNG (up to 10 MB) is decoded with Pillow, converted to RGB, resized and normalized using the selected torchvision weights' preprocessing transform, and passed through MobileNetV3-Small. Softmax probabilities are considered in descending order. Only class labels with an explicit supported ingredient mapping and probability at or above the user-selected threshold are returned. Results are cached by image digest and confidence threshold so ordinary UI reruns do not repeat inference. The UI lets users review the result before ranking recipes.
+An uploaded JPG or PNG (up to 10 MB) is processed in-memory with Pillow. The image is passed through `FoodDetector`:
+1. **Stage 1 (Faster R-CNN MobileNetV3 FPN):** Evaluates bounding boxes and spatial locations for COCO food classes (apples, bananas, carrots, oranges, broccoli, bread, sausage, cheese, etc.).
+2. **Stage 2 (MobileNetV3-Small):** Evaluates whole-image probability distribution across ImageNet classes, mapping botanical and culinary categories (nightshades, alliums, dairy, meats, seafood, herbs).
+3. **Merging & Annotation:** Detections are canonicalized via `ingredient_from_label()`, deduplicated, and optionally annotated with category-colored bounding boxes and confidence badges.
 
-The `sample_*.png` files use a filename-to-ingredient manifest in the app for deterministic demonstrations. This route intentionally bypasses the classifier and is labeled as demo data in the UI. On an uploaded image, model initialization or weight download errors are reported in the interface rather than replaced with fake predictions.
+### Recipe ranking and substitution model
 
-### Recipe CSV path
+Let $C_R$ be the set of core (non-staple) ingredients required by recipe $R$, and $P_R$ be the set of recipe ingredients classified as pantry staples. Let $U$ be the set of available user ingredients.
 
-The curated processed CSV stores ingredients and instructions as JSON-encoded string arrays in individual cells. The loader parses those arrays, normalizes ingredient names, rejects malformed or duplicate records with a useful error, and keeps optional nutrition fields nullable. External data ingestion is not part of this app; if introduced, raw source files must remain unchanged in `data/raw/`, with licensed, documented cleaned output written separately.
+When pantry staples are assumed present (`assume_staples=True`), staple ingredients are treated as satisfied. For each core ingredient $c \in C_R$:
+- If $c \in U$, match weight is $1.0$.
+- Else if any substitute $s \in \text{get\_substitutes}(c)$ is in $U$, substitution match weight is $0.8$.
+- Otherwise, match weight is $0.0$.
 
-## Model selection and trade-offs
+The recipe score is calculated as:
+$$\text{score}(U, R) = \frac{\sum_{c \in C_R} \text{weight}(c)}{|C_R|}$$
 
-MobileNetV3-Small is selected as a compact CPU-capable torchvision model, avoiding the inference cost of ResNet50. torchvision pretrained ImageNet weights are acquired on first uploaded-image inference. This is transfer learning in the sense that pretrained weights are used for inference, not fine-tuned in this project. The 1,000 ImageNet categories are not a refrigerator-food label set; mapping labels to ingredients is a constrained baseline, not a claim of accurate food detection. Fine-tuning a food-specific classifier would require a licensed, labeled image dataset, training/evaluation splits, and a separate evaluation phase.
-
-The app avoids initializing the model for its built-in sample path. Consequently, the sample walkthrough works offline, while arbitrary uploads require torchvision and availability of the pretrained weights (including a cached copy).
-
-## Recipe ranking
-
-Let `D` be the set of normalized user-confirmed ingredients and `R` a recipe's normalized ingredient set:
-
-```text
-score(D, R) = |D ∩ R| / |R|
-```
-
-Scores range from 0 to 1; an empty recipe ingredient list is invalid. Results are ordered by score, then by recipe name for deterministic ties. The UI reports percentage match, ingredients available, and missing ingredients. This simple coverage metric is explainable but does not model quantities, substitutions, dietary preferences, or ingredient importance.
+If all ingredients in a recipe are staples, the standard intersection ratio over all ingredients is used. Results are sorted descending by score, followed by alphabetical recipe name for deterministic ties. Missing core ingredients and substitutions used are surfaced transparently to the user.
 
 ## Nutrition estimation
 
-Calories and optional protein/carbohydrate/fat values in the starter CSV are approximate per-serving estimates. The nutrition helper multiplies per-serving values by a positive requested serving count and omits unavailable metrics. A 2,000 kcal daily reference and general macro reference values may be shown for context only; they are not personalized targets or medical guidance.
+Calories and macronutrients (protein, carbohydrates, fat) in `recipes.csv` are approximate per-serving estimates. The nutrition module scales values linearly by positive user serving counts.
 
 ## Error handling and limitations
 
-- Unsupported file types and unreadable images are rejected with actionable UI messages.
-- Missing recipe data or invalid CSV rows produce explicit errors rather than an empty success state.
-- If torchvision import, model construction, or pretrained-weight acquisition fails, uploaded-image inference reports the cause; users can still try samples and manual ingredient entry.
-- Poor lighting, occlusion, unusual camera angles, packaging, and multiple overlapping objects can cause missed or incorrect classifications.
-- Confidence is the model's ImageNet class probability, not a calibrated probability that a named ingredient is present.
-- The ingredient vocabulary is intentionally small. An unrecognized object is omitted; users can add it manually.
-- Calorie and macro data are estimates; ingredient quantities, brands, cooking methods, allergens, and food safety are not inferred.
-
-## Installation and execution
-
-Use Python 3.10 or 3.11, install `requirements.txt` in a virtual environment, then launch from the repository root with `streamlit run src/app.py`. The first inference on an uploaded image may download ImageNet weights. See the repository README for platform-specific activation commands.
+- Local torchvision models run entirely in CPU inference mode without sending data to external APIs.
+- Missing weights trigger explicit download handling or fallback notifications without crashing.
+- Pretrained COCO labels cover only 10 food classes with bounding boxes; non-COCO foods rely on Stage 2 classifier labels without spatial bounding boxes.
+- Nutrition values and substitutions are heuristic estimates, not medical or allergen advice.

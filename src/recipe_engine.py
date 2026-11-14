@@ -58,6 +58,15 @@ class RecipeMatcher:
     def __init__(self, csv_path: str | Path) -> None:
         self.csv_path = Path(csv_path)
         self.recipes = self._load_recipes()
+        self._inverted_index: dict[str, set[int]] = self._build_inverted_index()
+
+    def _build_inverted_index(self) -> dict[str, set[int]]:
+        """Map each normalized ingredient to the indices of recipes containing it."""
+        index: dict[str, set[int]] = {}
+        for idx, recipe in enumerate(self.recipes):
+            for ing in recipe["core_ingredients"]:
+                index.setdefault(ing, set()).add(idx)
+        return index
 
     # ------------------------------------------------------------------
     # CSV parsing helpers

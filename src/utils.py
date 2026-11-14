@@ -52,6 +52,7 @@ CULINARY_SUBSTITUTIONS: dict[str, list[str]] = {
     "pasta": ["noodles", "spaghetti", "penne"],
     "rice": ["brown rice", "white rice", "jasmine rice", "quinoa"],
     "spinach": ["kale", "arugula", "chard"],
+    "parsley": ["cilantro", "basil", "spinach", "chives"],
     "chickpea": ["garbanzo bean", "white bean", "cannellini bean"],
 }
 
@@ -369,7 +370,7 @@ def ingredient_from_label(label: str) -> str | None:
         "lemon", "lime", "lettuce", "milk", "mushroom", "onion", "orange",
         "pear", "potato", "spinach", "strawberry", "tomato", "yogurt",
         "bread", "beef", "pork", "sausage", "pasta", "rice", "squash",
-        "zucchini", "pineapple", "corn", "garlic", "beans",
+        "zucchini", "pineapple", "corn", "garlic", "beans", "parsley",
     }
 
     direct = normalize_ingredient(cleaned)

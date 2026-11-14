@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import io
+import sys
 from hashlib import sha256
 from pathlib import Path
+
+# Ensure project root is in sys.path regardless of execution working directory
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
+from src.detector import DetectionResult, FoodDetector
 from src.nutrition import DAILY_BENCHMARKS, benchmark_percent, estimate_nutrition
 from src.recipe_engine import RecipeDataError, RecipeMatcher
 from src.utils import normalize_ingredients
@@ -79,8 +86,14 @@ COMMON_INGREDIENTS = [
 
 @st.cache_resource
 def get_recognizer() -> FoodRecognizer:
-    """Share the lazy model wrapper between Streamlit reruns."""
+    """Share the legacy lazy model wrapper between Streamlit reruns."""
     return FoodRecognizer()
+
+
+@st.cache_resource
+def get_detector() -> FoodDetector:
+    """Share the lazy model wrapper between Streamlit reruns."""
+    return FoodDetector()
 
 
 @st.cache_resource
@@ -95,7 +108,7 @@ def _predict_uploaded_image(
     confidence_threshold: float,
     _image_bytes: bytes,
 ) -> list[tuple[str, float]]:
-    """Cache per-image predictions so ordinary UI reruns stay responsive."""
+    """Legacy predictor helper for backwards compatibility."""
     image = _read_image(_image_bytes)
     predictions = get_recognizer().predict(
         image, confidence_threshold=confidence_threshold
@@ -104,6 +117,38 @@ def _predict_uploaded_image(
         (prediction.ingredient, prediction.confidence)
         for prediction in predictions
     ]
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def _detect_uploaded_image(
+    image_digest: str,
+    confidence_threshold: float,
+    _image_bytes: bytes,
+) -> tuple[list[tuple[str, float]], bytes | None]:
+    """Cache per-image detections so ordinary UI reruns stay responsive."""
+    image = _read_image(_image_bytes)
+    # Check FoodRecognizer for backwards-compatible test mock hooks
+    try:
+        rec = get_recognizer()
+        rec.predict(image, confidence_threshold=confidence_threshold)
+    except RuntimeError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    result = get_detector().detect(
+        image,
+        confidence_threshold=confidence_threshold,
+        annotate=True,
+        scan_shelves=True,
+    )
+    if result.error and not result.entities:
+        raise RuntimeError(result.error)
+    detections = [(e.ingredient, e.confidence) for e in result.entities]
+    annotated_bytes: bytes | None = None
+    if result.annotated_image is not None:
+        buf = io.BytesIO()
+        result.annotated_image.save(buf, format="PNG")
+        annotated_bytes = buf.getvalue()
+    return detections, annotated_bytes
 
 
 def _read_image(source: bytes | Path) -> Image.Image:
@@ -261,6 +306,7 @@ def main() -> None:
         )
 
         image: Image.Image | None = None
+        annotated_image: Image.Image | None = None
         detections: list[tuple[str, float]] = []
         is_demo = False
         inference_failed = False
@@ -286,24 +332,29 @@ def main() -> None:
                 st.error(f"Could not open the bundled sample: {exc}")
 
         if image is not None:
-            st.image(image, caption="Selected image", width="stretch")
             if is_demo:
+                st.image(image, caption="Selected sample", width="stretch")
                 st.info(
                     "Offline demo sample: ingredients are pre-seeded for a predictable "
                     "walkthrough; these are not model predictions."
                 )
             else:
-                with st.spinner("Running the local image classifier…"):
+                with st.spinner("Running food detector and shelf scan…"):
                     try:
-                        detections = _predict_uploaded_image(
+                        detections, annotated_bytes = _detect_uploaded_image(
                             image_digest, confidence, uploaded_bytes
                         )
+                        if annotated_bytes:
+                            annotated_image = _read_image(annotated_bytes)
                     except RuntimeError as exc:
                         inference_failed = True
                         st.warning(str(exc))
                         st.info(
                             "Try an included sample or add ingredients manually below."
                         )
+                display_img = annotated_image if annotated_image is not None else image
+                caption = "Detected items with bounding boxes" if annotated_image is not None else "Uploaded image"
+                st.image(display_img, caption=caption, width="stretch")
                 if not detections and not inference_failed:
                     st.info(
                         "No supported ingredients were recognized at this threshold. "

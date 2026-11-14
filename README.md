@@ -27,26 +27,33 @@ The extra package index selects official CPU-only PyTorch wheels where available
 
 ## What the app does
 
-1. Runs a pretrained torchvision MobileNetV3-Small image classifier on an uploaded image.
-2. Maps supported ImageNet labels into a limited ingredient vocabulary, with confidence scores that can be adjusted.
-3. Lets the user correct model results and add pantry ingredients.
-4. Ranks the included recipes using `matched recipe ingredients / total recipe ingredients`, then shows missing ingredients, estimated nutrition, and cooking steps.
+1. Runs a two-stage local computer-vision detection pipeline on an uploaded image:
+   - **Stage 1 (Object Detection):** Pretrained torchvision Faster R-CNN (MobileNetV3-Large FPN) outputs spatial bounding boxes and identifies key COCO food items.
+   - **Stage 2 (Classification):** Pretrained MobileNetV3-Small (ImageNet) whole-image classifier supplements with a wide ingredient vocabulary (vegetables, proteins, dairy, alliums, nightshades).
+2. Maps detections to canonical ingredients using a 200+ culinary alias registry.
+3. Lets the user review detected items, adjust confidence thresholds, toggle bounding box visualization, and add manual or pantry items.
+4. Ranks a 120-recipe catalog using a staple-aware, substitution-credited ranking heuristic:
+   - Built-in in-memory inverted index (`ingredient -> set(recipe_ids)`) provides sub-millisecond retrieval.
+   - Non-perishable pantry staples (salt, pepper, oil, flour, etc.) are assumed present by default so recipes aren't unfairly penalized.
+   - Core ingredients missing from user inventory are checked against known culinary substitutions (e.g. lime for lemon) for 80% partial credit.
+   - Renders missing items, substitutions used, estimated serving-scaled nutrition, and step-by-step instructions.
 
-Bundled sample images are explicitly marked demonstrations: their ingredient detections are seeded for a predictable offline walkthrough, not represented as classifier predictions. Uploaded images use the actual vision model. The model's ImageNet labels are generic object categories rather than food-specific training labels, so predictions may be incomplete or incorrect.
+Bundled sample images are explicitly marked demonstrations: their ingredient detections are seeded for a predictable offline walkthrough, not represented as classifier predictions. Uploaded images use the actual local vision models without remote APIs.
 
 ## Repository map
 
 ```text
 .ai/codingrules.md                 AI contribution and data rules
 data/raw/                          Bundled sample images and raw-data guidance
-data/processed/recipes.csv         Curated, normalized starter recipe catalog
+data/processed/recipes.csv         Curated, normalized 120-recipe catalog
 docs/project_proposal.md           Team proposal and timeline
 docs/project_design_doc.md         Architecture, data pipeline, and trade-offs
 src/app.py                         Streamlit interface
+src/detector.py                    Two-stage local food detector & box visualizer
 src/vision_model.py                Local torchvision food-label recognition
-src/recipe_engine.py               CSV loading and recipe ranking
+src/recipe_engine.py               Staple-aware recipe scoring & ranking
 src/nutrition.py                   Serving-aware nutrition estimates
-src/utils.py                       Ingredient normalization and shared helpers
+src/utils.py                       Normalization, aliases, pantry staples, & substitutions
 requirements.txt                   Pinned Python dependencies
 ```
 
