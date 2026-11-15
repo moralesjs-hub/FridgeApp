@@ -18,3 +18,4 @@ data/raw/*
 !data/raw/sample_*.png
 data/processed/*
 !data/processed/recipes.csv
+.env

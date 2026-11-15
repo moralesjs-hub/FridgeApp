@@ -17,6 +17,7 @@ import altair as alt
 from PIL import Image, UnidentifiedImageError
 
 from src.detector import DetectionResult, FoodDetector
+from src.cloud_vision import CloudVisionService
 from src.nutrition import DAILY_BENCHMARKS, benchmark_percent, get_nutrition_summary
 from src.recipe_engine import RecipeDataError, RecipeMatcher
 from src.utils import normalize_ingredients
@@ -128,6 +129,32 @@ def _detect_uploaded_image(
 ) -> tuple[list[tuple[str, float]], bytes | None]:
     """Cache per-image detections so ordinary UI reruns stay responsive."""
     image = _read_image(_image_bytes)
+    # Try Gemini cloud vision first
+    try:
+        cloud = CloudVisionService()
+        if cloud.api_key:
+            result = cloud.detect_ingredients(
+                _image_bytes,
+                confidence_threshold=confidence_threshold,
+                annotate=True,
+            )
+
+            if result.success and result.entities:
+                detections = []
+                for e in result.entities:
+                    if e.normalized_name not in [name for name, score in detections]:
+                        detections.append((e.normalized_name, e.confidence))
+
+                annotated_bytes = None
+                if result.annotated_image is not None:
+                    buf = io.BytesIO()
+                    result.annotated_image.save(buf, format="PNG")
+                    annotated_bytes = buf.getvalue()
+
+                return detections, annotated_bytes
+
+    except Exception as exc:
+        print("Cloud vision failed:", exc)
     # Check FoodRecognizer for backwards-compatible test mock hooks
     try:
         rec = get_recognizer()
@@ -350,7 +377,7 @@ def main() -> None:
             max_value=0.90,
             value=0.15,
             step=0.05,
-            help="Hide lower-confidence supported ImageNet predictions.",
+            help="Filter detected ingredients based on model confidence.",
         )
         max_results = st.slider(
             "Maximum recipe results", min_value=1, max_value=12, value=6
@@ -420,8 +447,8 @@ def main() -> None:
             st.caption("No favorite recipes saved yet.")
         st.divider()
         st.caption(
-            "ImageNet recognition is limited and can be wrong. Review ingredients "
-            "before relying on recipe suggestions."
+            "AI-powered ingredient recognition may not always be accurate. "
+            "Review detected ingredients before relying on recipe suggestions."
         )
 
     try:
