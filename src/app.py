@@ -7,9 +7,10 @@ from hashlib import sha256
 from pathlib import Path
 
 import streamlit as st
+import altair as alt
 from PIL import Image, UnidentifiedImageError
 
-from src.nutrition import DAILY_BENCHMARKS, benchmark_percent, estimate_nutrition
+from src.nutrition import DAILY_BENCHMARKS, benchmark_percent, get_nutrition_summary
 from src.recipe_engine import RecipeDataError, RecipeMatcher
 from src.utils import normalize_ingredients
 from src.vision_model import FoodRecognizer
@@ -132,6 +133,15 @@ def _render_recipe(recipe: dict, servings: int) -> None:
         f"  ·  {calorie_label} kcal/serving"
     )
     with st.expander(title):
+        st.progress(recipe["match_score"], text="Ingredient match")
+        if recipe["name"] not in st.session_state["favorites"]:
+            if st.button("☆ Save to favorites", key=f"save_{recipe['id']}"):
+                st.session_state["favorites"].append(recipe["name"])
+                st.rerun()
+        else:
+            if st.button("⭐ Remove from favorites", key=f"unsave_{recipe['id']}"):
+                st.session_state["favorites"].remove(recipe["name"])
+                st.rerun()
         prep_time = (
             int(recipe["prep_time"])
             if recipe["prep_time"] is not None
@@ -142,38 +152,84 @@ def _render_recipe(recipe: dict, servings: int) -> None:
         )
         have_column, missing_column = st.columns(2)
         with have_column:
-            st.markdown("**Ingredients you have**")
+            st.markdown("**Available ingredients**")
             st.write(", ".join(recipe["matched_ingredients"]) or "None yet")
         with missing_column:
             st.markdown("**Missing ingredients**")
+            if recipe["missing_ingredients"]:
+                if st.button(
+                    "🛒 Add missing ingredients to shopping list",
+                    key=f"shopping_{recipe['id']}"
+                ):
+                    for ingredient in recipe["missing_ingredients"]:
+                        if ingredient not in st.session_state["shopping_list"]:
+                            st.session_state["shopping_list"].append(ingredient)
+
+                    st.rerun()
             st.write(", ".join(recipe["missing_ingredients"]) or "You're all set!")
 
-        nutrition = estimate_nutrition(recipe, servings)
-        calorie_value = nutrition["calories_per_serving"]
-        if calorie_value is not None:
-            st.metric(
-                f"Estimated calories · {servings} serving(s)",
-                f"{calorie_value:.0f} kcal",
-                (
-                    f"{calorie_value / DAILY_BENCHMARKS['calories']:.0%} "
-                    "of 2,000 kcal reference"
-                ),
+        nutrition = get_nutrition_summary(recipe, servings)
+
+        st.markdown("**Nutrition estimate**")
+        st.caption(f"Estimated nutrition for {servings} serving(s)")
+
+        calorie_columns = st.columns(2)
+
+        calories = nutrition["calories_per_serving"]
+        total_calories = nutrition["total_calories"]
+
+        if calories is not None:
+            calorie_columns[0].metric(
+                "Calories per serving",f"{calories:.0f} kcal"
             )
+
+        if total_calories is not None:
+            calorie_columns[1].metric(
+                "Total calories", f"{total_calories:.0f} kcal"
+            )
+
         macro_columns = st.columns(3)
-        for column, key, label in zip(
+
+        for column, key, label, benchmark_key in zip(
             macro_columns,
-            ("protein_g", "carbs_g", "fat_g"),
-            ("Protein", "Carbohydrates", "Fat"),
+            ["total_protein", "total_carbs", "total_fat"],
+            ["Protein", "Carbohydrates", "Fat"],
+            ["protein_g", "carbs_g", "fat_g"],
         ):
             amount = nutrition[key]
+
             if amount is not None:
-                benchmark = DAILY_BENCHMARKS[key]
+                benchmark = DAILY_BENCHMARKS[benchmark_key]
                 percentage = benchmark_percent(amount, benchmark)
+
                 column.metric(
                     label,
                     f"{amount:.1f} g",
                     f"{percentage:.0f}% of {benchmark:.0f} g reference",
                 )
+        st.markdown("**Nutrition breakdown**")
+
+        nutrition_data = [
+            {"Nutrient": "Protein", "Grams": nutrition["total_protein"]},
+            {"Nutrient": "Carbohydrates", "Grams": nutrition["total_carbs"]},
+            {"Nutrient": "Fat", "Grams": nutrition["total_fat"]}
+        ]
+
+        chart = alt.Chart(alt.Data(values=nutrition_data)).mark_arc(
+            innerRadius=60
+        ).encode(
+            theta="Grams:Q",
+            color=alt.Color(
+                "Nutrient:N",
+                scale=alt.Scale(
+                    domain=["Protein", "Carbohydrates", "Fat"],
+                    range=["#3D6348", "#A4BD98", "#E9C568"]
+                )
+            ),
+            tooltip=["Nutrient:N", "Grams:Q"]
+        ).properties(height=250)
+
+        st.altair_chart(chart, use_container_width=True)
         st.markdown("**Instructions**")
         for index, instruction in enumerate(recipe["instructions"], start=1):
             st.markdown(f"{index}. {instruction}")
@@ -182,27 +238,57 @@ def _render_recipe(recipe: dict, servings: int) -> None:
 def main() -> None:
     """Run the Streamlit application."""
     st.set_page_config(
-        page_title="FridgeApp · Recipe Finder",
+        page_title="Ingredia · Recipe Finder",
         page_icon="🥗",
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    if "shopping_list" not in st.session_state:
+        st.session_state["shopping_list"] = []
+    if "favorites" not in st.session_state:
+        st.session_state["favorites"] = []
+
     st.markdown(
         """
         <style>
-        .block-container {max-width: 1280px; padding-top: 2rem; padding-bottom: 3rem;}
+        .block-container {
+            max-width: 1280px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+
+        [data-testid="stSidebar"] {
+            background-color: #F0F4ED;
+        }
+
+        h1 {
+            color: #3D6348;
+        }
+
         [data-testid="stMetric"] {
-            background: #f3f8f2; padding: 1rem; border-radius: 12px;
+            background-color: #F0F4ED;
+            padding: 1rem;
+            border-radius: 12px;
+        }
+
+        .stButton button, .stDownloadButton button {
+            background-color: #3D6348;
+            color: white;
+            border-radius: 8px;
+            border: none;
+        }
+
+        .stProgress > div > div > div > div {
+            background-color: #8EAD91;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    st.title("🥗 FridgeApp")
-    st.markdown("### Turn what you have into something delicious.")
+    st.title("🥗 Ingredia")
+    st.markdown("### Good food starts with what you have")
     st.caption(
-        "Local computer vision · editable ingredient detection · "
-        "explainable recipe matches"
+        "Discover recipes, reduce food waste, and make the most of your ingredients with AI."
     )
 
     with st.sidebar:
@@ -236,6 +322,57 @@ def main() -> None:
             "Servings for nutrition estimate", min_value=1, max_value=12, value=1
         )
         st.divider()
+        st.subheader("Dietary preferences")
+
+        diet = st.radio(
+            "Select your preference",
+            ["All recipes", "Vegetarian", "Vegan", "High protein", "Low calorie"]
+        )
+        st.divider()
+        st.subheader("🛒 Shopping list")
+
+        if st.session_state["shopping_list"]:
+            for ingredient in st.session_state["shopping_list"][:]:
+                col1, col2 = st.columns([4, 1])
+
+                with col1:
+                    st.checkbox(
+                        ingredient.capitalize(),
+                        key=f"check_{ingredient}"
+                    )
+
+                with col2:
+                    if st.button("✕", key=f"remove_{ingredient}"):
+                        st.session_state["shopping_list"].remove(ingredient)
+                        st.rerun()
+            st.download_button(
+                "Download shopping list",
+                data="\n".join(st.session_state["shopping_list"]),
+                file_name="shopping_list.txt",
+                mime="text/plain"
+            )
+            if st.button("Clear shopping list"):
+                st.session_state["shopping_list"] = []
+                st.rerun()
+        else:
+            st.caption("Your shopping list is empty.")
+        st.divider()
+        st.subheader("⭐ Favorite recipes")
+
+        if st.session_state["favorites"]:
+            for recipe_name in st.session_state["favorites"][:]:
+                col1, col2 = st.columns([4, 1])
+
+                with col1:
+                    st.write(recipe_name)
+
+                with col2:
+                    if st.button("✕", key=f"favorite_{recipe_name}"):
+                        st.session_state["favorites"].remove(recipe_name)
+                        st.rerun()
+        else:
+            st.caption("No favorite recipes saved yet.")
+        st.divider()
         st.caption(
             "ImageNet recognition is limited and can be wrong. Review ingredients "
             "before relying on recipe suggestions."
@@ -257,7 +394,6 @@ def main() -> None:
         uploaded_file = st.file_uploader(
             "Or upload a JPG or PNG",
             type=["jpg", "jpeg", "png"],
-            max_upload_size=10,
         )
 
         image: Image.Image | None = None
@@ -359,12 +495,38 @@ def main() -> None:
             )
 
     st.divider()
-    st.subheader("3. Recipes you can make")
+    st.subheader("3. Recommended recipes")
     if not confirmed_ingredients:
         st.info("Your recipe matches will appear here once you add ingredients.")
         return
 
     ranked = matcher.match(confirmed_ingredients)
+    if diet == "Vegetarian":
+        ranked = [
+            recipe for recipe in ranked
+            if not any(item in ["chicken", "salmon"]
+                       for item in recipe["matched_ingredients"] + recipe["missing_ingredients"])
+        ]
+
+    elif diet == "Vegan":
+        ranked = [
+            recipe for recipe in ranked
+            if not any(item in ["chicken", "salmon", "egg", "cheese", "milk", "yogurt"]
+                       for item in recipe["matched_ingredients"] + recipe["missing_ingredients"])
+        ]
+
+    elif diet == "High protein":
+        ranked = [
+            recipe for recipe in ranked
+            if (recipe.get("protein_g") or 0) >= 20
+        ]
+
+    elif diet == "Low calorie":
+        ranked = [
+            recipe for recipe in ranked
+            if recipe["calories_per_serving"] is not None
+            and recipe["calories_per_serving"] <= 300
+        ]
     qualifying = [
         recipe
         for recipe in ranked
@@ -380,8 +542,28 @@ def main() -> None:
         f"Ranked by ingredient coverage · {len(qualifying)} recipe(s) shown · "
         "scores do not account for ingredient quantities or substitutions."
     )
+    ready_recipes = []
+    missing_recipes = []
+
     for recipe in qualifying:
-        _render_recipe(recipe, int(servings))
+        if not recipe["missing_ingredients"]:
+            ready_recipes.append(recipe)
+        else:
+            missing_recipes.append(recipe)
+
+    st.markdown("### Ready to cook")
+
+    if ready_recipes:
+        for recipe in ready_recipes:
+            _render_recipe(recipe, int(servings))
+    else:
+        st.info("No complete recipe matches yet.")
+
+    if missing_recipes:
+        st.markdown("### Almost ready to cook")
+
+        for recipe in missing_recipes:
+            _render_recipe(recipe, int(servings))
 
 
 if __name__ == "__main__":

@@ -109,10 +109,13 @@ def ingredient_from_label(label: str) -> str | None:
     cleaned = clean_text(label)
     direct = normalize_ingredient(cleaned)
     supported = {
-        "apple", "avocado", "banana", "bell pepper", "broccoli", "carrot",
-        "cauliflower", "cheese", "chicken", "cucumber", "egg", "lemon",
-        "lettuce", "milk", "mushroom", "onion", "orange", "pear", "potato",
-        "spinach", "strawberry", "tomato", "yogurt",
+        "apple", "avocado", "banana", "bell pepper", "broccoli",
+        "carrot", "cauliflower", "cheese", "chicken", "cucumber",
+        "egg", "lemon", "lettuce", "milk", "mushroom", "onion",
+        "orange", "pear", "potato", "spinach", "strawberry",
+        "tomato", "yogurt",
+        "pomegranate", "pineapple", "fig", "artichoke",
+        "zucchini", "cabbage", "corn", "garlic"
     }
     if direct in supported:
         return direct
