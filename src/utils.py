@@ -5,6 +5,15 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+# Substrings or exact terms that identify non-food packaging containers
+_CONTAINER_KEYWORDS = {
+    "bottle",
+    "jar",
+    "jug",
+    "container",
+    "carton",
+}
+
 # Canonical pantry staples that do not unfairly penalize recipe scores if omitted
 PANTRY_STAPLES = {
     "salt",
@@ -94,6 +103,7 @@ _ALIASES = {
     "red bell pepper": "bell pepper",
     "green bell pepper": "bell pepper",
     "yellow bell pepper": "bell pepper",
+    "orange bell pepper": "bell pepper",
     "jalapeno": "jalapeno",
     "jalapenos": "jalapeno",
     "chili pepper": "chili pepper",
@@ -124,6 +134,7 @@ _ALIASES = {
     "russet potatoes": "potato",
     "sweet potato": "sweet potato",
     "sweet potatoes": "sweet potato",
+    "sweet potato cube": "sweet potato",
     "cucumber": "cucumber",
     "cucumbers": "cucumber",
     "zucchini": "zucchini",
@@ -164,6 +175,8 @@ _ALIASES = {
     "avocado": "avocado",
     "avocados": "avocado",
     "pineapple": "pineapple",
+    "pineapple chunk": "pineapple",
+    "watermelon cube": "watermelon",
     # Dairy, Eggs & Alternatives
     "egg": "egg",
     "eggs": "egg",
@@ -291,9 +304,10 @@ _PREPARATION_WORDS = {
     "canned",
     "frozen",
     "dried",
+    "glass",
+    "metal",
 }
 
-# Explicit non-food or non-culinary ImageNet terms that must NOT be mapped to ingredients
 _NON_FOOD_EXCLUSIONS = {
     "sea cucumber",
     "slug",
@@ -317,10 +331,20 @@ def normalize_ingredient(value: str) -> str:
     cleaned = clean_text(value)
     if not cleaned:
         return ""
+    
+    # Exclude anything containing container keywords (bottle, jar, jug, carton, container)
+    if any(keyword in cleaned for keyword in _CONTAINER_KEYWORDS):
+        return ""
+
     if cleaned in _ALIASES:
         return _ALIASES[cleaned]
-    words = [word for word in cleaned.split() if word not in _PREPARATION_WORDS]
+    
+    words = [word for word in cleaned.split() if word not in _PREPARATION_WORDS and word not in _CONTAINER_KEYWORDS]
     normalized = " ".join(words)
+    
+    if not normalized or any(keyword in normalized for keyword in _CONTAINER_KEYWORDS):
+        return ""
+
     if normalized in _ALIASES:
         return _ALIASES[normalized]
     if normalized.endswith("ies") and len(normalized) > 4:
@@ -359,11 +383,9 @@ def ingredient_from_label(label: str) -> str | None:
     if not cleaned:
         return None
 
-    # Check explicit non-food exclusions first (e.g. 'sea cucumber' is an echinoderm animal, not food)
-    if cleaned in _NON_FOOD_EXCLUSIONS:
+    if any(keyword in cleaned for keyword in _CONTAINER_KEYWORDS) or cleaned in _NON_FOOD_EXCLUSIONS:
         return None
 
-    # Supported direct canonical ingredients
     supported = {
         "apple", "avocado", "banana", "bell pepper", "broccoli",
         "carrot", "cauliflower", "cabbage", "cheese", "chicken",
@@ -379,7 +401,6 @@ def ingredient_from_label(label: str) -> str | None:
     if direct in supported:
         return direct
 
-    # Multi-token token matching for compound ImageNet labels
     label_words = set(cleaned.split())
     mappings: tuple[tuple[set[str], str], ...] = (
         ({"bell", "pepper"}, "bell pepper"),
