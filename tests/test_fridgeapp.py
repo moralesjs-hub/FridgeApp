@@ -16,6 +16,22 @@ from src.utils import ingredient_from_label, normalize_ingredient, normalize_ing
 from src.vision_model import FoodRecognizer
 
 
+def test_custom_styles_are_injected_on_every_run(monkeypatch) -> None:
+    from src import backend
+
+    injected: list[str] = []
+    monkeypatch.setattr(
+        backend.st,
+        "markdown",
+        lambda body, **kwargs: injected.append(body),
+    )
+
+    backend.apply_custom_styles()
+    backend.apply_custom_styles()
+
+    assert len(injected) == 2
+
+
 def test_recipe_catalog_has_valid_diverse_starter_data() -> None:
     matcher = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv")
 

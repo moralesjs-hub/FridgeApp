@@ -1,6 +1,14 @@
 [theme]
-primaryColor = "#2D5A3F"
-backgroundColor = "#FAFAF9"
-secondaryBackgroundColor = "#F0F4ED"
+primaryColor = "#1B4D3E"
+backgroundColor = "#FDFAEC"
+secondaryBackgroundColor = "#F0F5F0"
 textColor = "#1C2321"
 font = "sans serif"
+
+[server]
+# Cache static files aggressively so the browser skips round-trips on reload
+enableStaticServing = true
+
+[client]
+# Surface errors in the browser console but keep the UI clean
+showErrorDetails = false
