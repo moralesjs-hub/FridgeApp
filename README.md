@@ -63,6 +63,16 @@ The starter recipe catalog is curated project data and is stored in `data/proces
 
 The classifier uses torchvision's pretrained MobileNetV3-Small weights. It is not fine-tuned on a food dataset; supported ImageNet labels are mapped into a small ingredient vocabulary. A food-specific model or transfer-learning experiment can replace this component without changing the recipe-ranking module. We do not send images to third-party vision APIs.
 
+### Optional fine-tuning
+
+On branch `train/vision-model`, add a JSON manifest at `data/raw/annotations.json` (see `data/raw/annotations.example.json`), then run:
+
+```powershell
+python -m train --manifest data/raw/annotations.json --task classifier --epochs 5
+```
+
+Checkpoints land in `models/` and are picked up automatically by the app. Full steps: `train/README.md`.
+
 ## Rubric-oriented checklist
 
 - **Easy execution:** pinned requirements, Python 3.10/3.11 quickstart, one-command Streamlit launch, and offline sample walkthrough.

@@ -1,0 +1,1 @@
+"""Offline training entry points for FridgeApp vision models."""
