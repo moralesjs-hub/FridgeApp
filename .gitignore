@@ -21,3 +21,4 @@ data/raw/*
 !data/raw/annotations.example.json
 data/processed/*
 !data/processed/recipes.csv
+.env

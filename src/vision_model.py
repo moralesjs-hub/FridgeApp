@@ -8,6 +8,7 @@ from typing import Any
 from PIL import Image
 
 from src.ingredient_classifier import predict_multilabel, try_load_fine_tuned
+
 from src.utils import ingredient_from_label
 
 
@@ -60,6 +61,19 @@ class FoodRecognizer:
         self._transform = weights.transforms()
         self._model = model
 
+    def _get_image_regions(self, image: Image.Image) -> list[Image.Image]:
+        width, height = image.size
+
+        regions = [
+            image,
+            image.crop((0, 0, width // 2, height // 2)),
+            image.crop((width // 2, 0, width, height // 2)),
+            image.crop((0, height // 2, width // 2, height)),
+            image.crop((width // 2, height // 2, width, height))
+        ]
+
+        return regions
+
     def predict(
         self,
         image: Image.Image,
@@ -96,11 +110,21 @@ class FoodRecognizer:
         assert self._weights is not None
 
         try:
-            tensor = self._transform(image.convert("RGB")).unsqueeze(0)
-            with self._torch.inference_mode():
-                probabilities = self._torch.nn.functional.softmax(
-                    self._model(tensor)[0], dim=0
-                )
+            regions = self._get_image_regions(image)
+            all_probabilities = []
+
+            for region in regions:
+                tensor = self._transform(region.convert("RGB")).unsqueeze(0)
+
+                with self._torch.inference_mode():
+                    probabilities = self._torch.nn.functional.softmax(
+                        self._model(tensor)[0], dim=0
+                    )
+
+                all_probabilities.append(probabilities)
+
+            probabilities = self._torch.stack(all_probabilities).max(dim=0).values
+
             values, indices = self._torch.topk(
                 probabilities, k=min(100, probabilities.numel())
             )
@@ -108,6 +132,9 @@ class FoodRecognizer:
             raise RuntimeError("The uploaded image could not be classified.") from exc
 
         categories = self._weights.meta["categories"]
+        print("\nTop 10 AI predictions:")
+        for probability, index in zip(values.tolist()[:10], indices.tolist()[:10]):
+            print(f"{categories[index]}: {probability:.4f}")
         predictions: list[Prediction] = []
         seen: set[str] = set()
         for probability, index in zip(values.tolist(), indices.tolist()):

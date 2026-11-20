@@ -40,3 +40,16 @@ def benchmark_percent(value: float | None, benchmark: float) -> float | None:
     if benchmark <= 0:
         raise ValueError("benchmark must be positive.")
     return max(0.0, value) / benchmark * 100.0
+
+def get_nutrition_summary(recipe, servings=1):
+    # Calculate the total nutrition based on servings
+    nutrition = estimate_nutrition(recipe, servings)
+
+    return {
+        "servings": servings,
+        "calories_per_serving": recipe.get("calories_per_serving"),
+        "total_calories": nutrition["calories_per_serving"],
+        "total_protein": nutrition["protein_g"],
+        "total_carbs": nutrition["carbs_g"],
+        "total_fat": nutrition["fat_g"],
+    }
