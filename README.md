@@ -75,6 +75,17 @@ GEMINI_API_KEY=your_api_key_here
 
 ---
 
+### Optional fine-tuning
+
+On branch `train/vision-model`, add a JSON manifest at `data/raw/annotations.json` (see `data/raw/annotations.example.json`), then run:
+
+```powershell
+python -m train --manifest data/raw/annotations.json --task classifier --epochs 5
+```
+
+Checkpoints land in `models/` and are picked up automatically by the app. Full steps: `train/README.md`.
+
+## Rubric-oriented checklist
 ## 📂 Repository Map
 
 ```text

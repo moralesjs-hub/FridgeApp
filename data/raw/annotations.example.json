@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "dataset_root": "data/raw",
+  "records": [
+    {
+      "image": "sample_produce.png",
+      "ingredients": ["tomato", "broccoli", "carrot", "parsley"],
+      "boxes": [
+        {
+          "ingredient": "tomato",
+          "bbox": [0.25, 0.15, 0.52, 0.48]
+        },
+        {
+          "ingredient": "broccoli",
+          "bbox": [0.08, 0.45, 0.38, 0.85]
+        }
+      ]
+    },
+    {
+      "image": "sample_fruit.png",
+      "ingredients": ["banana", "apple"]
+    },
+    {
+      "image": "sample_breakfast.png",
+      "ingredients": ["egg", "milk", "butter"]
+    }
+  ]
+}

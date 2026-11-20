@@ -184,9 +184,11 @@ class FoodDetector:
         self._rcnn: Any = None
         self._rcnn_weights: Any = None
         self._rcnn_transform: Any = None
+        self._fine_tuned_rcnn: Any = None
         self._classifier: Any = None
         self._cls_weights: Any = None
         self._cls_transform: Any = None
+        self._fine_tuned_cls: Any = None
         self._torch: Any = None
         self._rcnn_error: str | None = None
         self._cls_error: str | None = None
@@ -198,6 +200,15 @@ class FoodDetector:
     def _load_rcnn(self) -> None:
         """Load Faster R-CNN + MobileNetV3 FPN (COCO pretrained) lazily."""
         if self._rcnn is not None or self._rcnn_error:
+            return
+        from src.ingredient_classifier import try_load_fine_tuned_detector
+
+        fine_tuned = try_load_fine_tuned_detector()
+        if fine_tuned is not None:
+            self._torch = fine_tuned.torch
+            self._fine_tuned_rcnn = fine_tuned
+            self._rcnn = fine_tuned.model
+            self._rcnn_transform = fine_tuned.transform
             return
         try:
             import torch
@@ -221,6 +232,15 @@ class FoodDetector:
     def _load_classifier(self) -> None:
         """Load MobileNetV3-Small (ImageNet) for classifier fallback."""
         if self._classifier is not None or self._cls_error:
+            return
+        from src.ingredient_classifier import try_load_fine_tuned
+
+        fine_tuned = try_load_fine_tuned()
+        if fine_tuned is not None:
+            self._torch = self._torch or fine_tuned.torch
+            self._fine_tuned_cls = fine_tuned
+            self._classifier = fine_tuned.model
+            self._cls_transform = fine_tuned.transform
             return
         try:
             import torch
@@ -263,8 +283,13 @@ class FoodDetector:
         with torch.no_grad():
             outputs = self._rcnn([tensor])[0]
 
-        categories = self._rcnn_weights.meta["categories"]
         entities: list[DetectedEntity] = []
+        fine_tuned = self._fine_tuned_rcnn is not None
+        categories: list[str]
+        if fine_tuned:
+            categories = list(self._fine_tuned_rcnn.ingredients)
+        else:
+            categories = list(self._rcnn_weights.meta["categories"])
 
         for box, label_idx, score in zip(
             outputs["boxes"], outputs["labels"], outputs["scores"]
@@ -272,14 +297,22 @@ class FoodDetector:
             conf = float(score)
             if conf < confidence_threshold:
                 continue
-            label = categories[int(label_idx)]
-            if label not in _COCO_FOOD_LABELS:
-                continue
 
-            ingredient = _COCO_TO_INGREDIENT.get(label)
-            if not ingredient:
-                continue
-            ingredient = normalize_ingredient(ingredient)
+            if fine_tuned:
+                class_index = int(label_idx)
+                if class_index < 1 or class_index > len(categories):
+                    continue
+                ingredient = normalize_ingredient(categories[class_index - 1])
+                source = "fine_tuned_detector"
+            else:
+                label = categories[int(label_idx)]
+                if label not in _COCO_FOOD_LABELS:
+                    continue
+                mapped = _COCO_TO_INGREDIENT.get(label)
+                if not mapped:
+                    continue
+                ingredient = normalize_ingredient(mapped)
+                source = "coco_detector"
 
             x1, y1, x2, y2 = box.tolist()
             bbox = BoundingBox(
@@ -293,7 +326,7 @@ class FoodDetector:
                 DetectedEntity(
                     ingredient=ingredient,
                     confidence=conf,
-                    source="coco_detector",
+                    source=source,
                     category=category,
                     box=bbox,
                 )
@@ -311,6 +344,28 @@ class FoodDetector:
         self._load_classifier()
         if self._cls_error:
             return []
+
+        if self._fine_tuned_cls is not None:
+            from src.ingredient_classifier import predict_multilabel
+
+            entities: list[DetectedEntity] = []
+            for ingredient, score in predict_multilabel(
+                self._fine_tuned_cls,
+                image,
+                confidence_threshold=confidence_threshold,
+                top_k=top_k,
+            ):
+                category = _INGREDIENT_CATEGORY.get(ingredient, "other")
+                entities.append(
+                    DetectedEntity(
+                        ingredient=ingredient,
+                        confidence=score,
+                        source="fine_tuned_classifier",
+                        category=category,
+                        box=None,
+                    )
+                )
+            return entities
 
         import torch
 

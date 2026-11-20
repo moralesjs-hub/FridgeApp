@@ -7,6 +7,7 @@ from typing import Any
 
 from PIL import Image
 
+from src.ingredient_classifier import predict_multilabel, try_load_fine_tuned
 
 from src.utils import ingredient_from_label
 
@@ -28,9 +29,17 @@ class FoodRecognizer:
         self._weights: Any = None
         self._transform: Any = None
         self._torch: Any = None
+        self._fine_tuned: Any = None
 
     def _load_model(self) -> None:
         if self._model is not None:
+            return
+        fine_tuned = try_load_fine_tuned()
+        if fine_tuned is not None:
+            self._fine_tuned = fine_tuned
+            self._model = fine_tuned.model
+            self._transform = fine_tuned.transform
+            self._torch = fine_tuned.torch
             return
         try:
             import torch
@@ -79,8 +88,26 @@ class FoodRecognizer:
         self._load_model()
         assert self._torch is not None
         assert self._model is not None
-        assert self._weights is not None
         assert self._transform is not None
+
+        if self._fine_tuned is not None:
+            predictions: list[Prediction] = []
+            seen: set[str] = set()
+            for ingredient, probability in predict_multilabel(
+                self._fine_tuned,
+                image,
+                confidence_threshold=confidence_threshold,
+                top_k=top_k,
+            ):
+                if ingredient in seen:
+                    continue
+                predictions.append(
+                    Prediction(ingredient, probability, f"fine_tuned:{ingredient}")
+                )
+                seen.add(ingredient)
+            return predictions
+
+        assert self._weights is not None
 
         try:
             regions = self._get_image_regions(image)
