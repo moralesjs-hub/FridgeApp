@@ -1,85 +1,115 @@
-# FridgeApp: AI Food Recognition and Recipe Suggestions
+<div align="center">
+  <img src="assets/ingredia_logo.png" width="140" alt="Ingredia Logo">
+  <h1>Ingredia</h1>
+  <p><b>Good food starts with what you have.</b></p>
+</div>
 
-FridgeApp is a CSCI 270 team project that uses a pretrained computer-vision classifier to suggest recipes from food in a refrigerator photo. Recipe ranking is a transparent ingredient-overlap heuristic, not a vision-language API. The included sample images work without downloading model weights; uploads are classified locally after ImageNet weights are available.
+---
 
-## Team
+**Ingredia** is an AI-powered recipe recommendation and pantry intelligence application that helps users discover meals based on ingredients they already have at home. Users can upload a refrigerator or pantry photo, review AI-detected items, and explore a rich catalog of categorized recipes complete with estimated calories, interactive macronutrient charts, and nutritional breakdowns.
 
-Philip Pagana, Snovi Patel, Jaden Morales, and Amelia West
-College of Charleston · CSCI 270 — Applied AI
+Developed as a **CSCI 270 Applied AI** team project at the **College of Charleston**.
 
-## Quickstart
+---
 
-Use Python 3.10 or 3.11. From the repository root:
+## 👥 Team
+* **Philip Pagana**
+* **Snovi Patel**
+* **Jaden Morales**
+* **Amelia West**  
+* *College of Charleston · CSCI 270 — Applied AI*
+
+---
+
+## ✨ Key Features & Architecture
+1. **Intelligent Computer Vision & Object Detection**:
+   - **Google Gemini Cloud Vision**: Automatically recognizes multiple food items and renders bounding boxes with confidence scores.
+   - **Two-Stage Local Fallback**: Uses pretrained Faster R-CNN (MobileNetV3-Large FPN) and MobileNetV3-Small (ImageNet) models when offline or unconfigured.
+   - **Container Filtering**: Automatically excludes non-food storage containers (bottles, jars, jugs) from pantry inventory.
+2. **Dynamic Recipe Synthesis & Catalog**: Matches available inventory against a curated catalog of **500+ recipes** featuring scrollable category filter pills, dynamic pagination, and staple-aware scoring.
+3. **Custom UI & Branding**: Styled with a seamless, custom cream background (`#fdfaec`), custom typography (`Fredoka` & `Plus Jakarta Sans`), and the official brand logo.
+4. **Nutrition & Macro Tracking**: Interactive Altair donut charts illustrating protein, carbohydrate, and fat distributions alongside benchmark percentages.
+5. **Interactive Tools**: Dynamic shopping list exporter and favorited recipe bookmarking.
+
+---
+
+## 🚀 Quickstart
+
+Use **Python 3.10** or **3.11**. From the repository root:
 
 ```powershell
+# 1. Create and activate a virtual environment
 python -m venv .venv
-# Windows PowerShell
+# Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
+# macOS/Linux:
+# source .venv/bin/activate
+
+# 2. Upgrade pip and install dependencies
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements.txt --extra-index-url [https://download.pytorch.org/whl/cpu](https://download.pytorch.org/whl/cpu)
+
+# 3. Launch the Streamlit application
 streamlit run src/app.py
+
 ```
 
-Open the local URL printed by Streamlit. Select one of the bundled examples to try the full workflow immediately, or upload a JPG/PNG (up to 10 MB). The first uploaded-image classification may download the pretrained MobileNetV3-Small ImageNet weights; allow that initial network access. If model loading or weight download fails, the app reports the problem and remains usable with the bundled sample images and manual ingredient entry.
+Open the local URL printed by Streamlit (`http://localhost:8501`). Select one of the bundled preset samples (`Produce drawer`, `Breakfast basics`, `Fruit and yogurt`) or upload your own JPG/PNG image (up to 10 MB).
 
-The extra package index selects official CPU-only PyTorch wheels where available, avoiding CUDA dependencies for this CPU-oriented project.
+---
 
-## What the app does
+## 🔑 Gemini API Setup (Optional)
 
-1. Runs a two-stage local computer-vision detection pipeline on an uploaded image:
-   - **Stage 1 (Object Detection):** Pretrained torchvision Faster R-CNN (MobileNetV3-Large FPN) outputs spatial bounding boxes and identifies key COCO food items.
-   - **Stage 2 (Classification):** Pretrained MobileNetV3-Small (ImageNet) whole-image classifier supplements with a wide ingredient vocabulary (vegetables, proteins, dairy, alliums, nightshades).
-2. Maps detections to canonical ingredients using a 200+ culinary alias registry.
-3. Lets the user review detected items, adjust confidence thresholds, toggle bounding box visualization, and add manual or pantry items.
-4. Ranks a 120-recipe catalog using a staple-aware, substitution-credited ranking heuristic:
-   - Built-in in-memory inverted index (`ingredient -> set(recipe_ids)`) provides sub-millisecond retrieval.
-   - Non-perishable pantry staples (salt, pepper, oil, flour, etc.) are assumed present by default so recipes aren't unfairly penalized.
-   - Core ingredients missing from user inventory are checked against known culinary substitutions (e.g. lime for lemon) for 80% partial credit.
-   - Renders missing items, substitutions used, estimated serving-scaled nutrition, and step-by-step instructions.
+Ingredia uses Google Gemini to improve ingredient recognition and identify multiple food items in a photo.
 
-Bundled sample images are explicitly marked demonstrations: their ingredient detections are seeded for a predictable offline walkthrough, not represented as classifier predictions. Uploaded images use the actual local vision models without remote APIs.
+1. Visit [Google AI Studio](https://aistudio.google.com/apikey) to create your API key.
+2. Create a `.env` file in the root project folder.
+3. Add your key to the file:
+```env
+GEMINI_API_KEY=your_api_key_here
 
-## Repository map
+```
+
+
+4. Save the file and restart Streamlit. *(The `.env` file is excluded via `.gitignore` for security).* If unconfigured, Ingredia seamlessly falls back to local computer vision models.
+
+---
+
+## 📂 Repository Map
 
 ```text
-.ai/codingrules.md                 AI contribution and data rules
-data/raw/                          Bundled sample images and raw-data guidance
-data/processed/recipes.csv         Curated, normalized 120-recipe catalog
-docs/project_proposal.md           Team proposal and timeline
-docs/project_design_doc.md         Architecture, data pipeline, and trade-offs
-src/app.py                         Streamlit interface
-src/detector.py                    Two-stage local food detector & box visualizer
-src/vision_model.py                Local torchvision food-label recognition
-src/recipe_engine.py               Staple-aware recipe scoring & ranking
-src/nutrition.py                   Serving-aware nutrition estimates
-src/utils.py                       Normalization, aliases, pantry staples, & substitutions
-requirements.txt                   Pinned Python dependencies
+├── .streamlit/                # Streamlit configuration & custom theme styling
+├── assets/                    # Official brand logo (ingredia_logo.png)
+├── data/
+│   ├── raw/                   # Bundled sample images & raw data documentation
+│   └── processed/             # Curated, normalized 500-recipe catalog (recipes.csv)
+├── docs/                      # Project proposal, design document, and design specs
+├── src/
+│   ├── app.py                 # Streamlit web application interface
+│   ├── cloud_vision.py        # Google Gemini AI ingredient recognition
+│   ├── detector.py            # Two-stage local food detector & box visualizer
+│   ├── vision_model.py        # Local torchvision food-label recognition
+│   ├── recipe_engine.py       # Staple-aware recipe scoring & ranking
+│   ├── nutrition.py           # Serving-aware nutrition estimates & macros
+│   └── utils.py               # Normalization, culinary aliases, & pantry staples
+├── tests/                     # Pytest regression and integration test suite
+├── requirements.txt           # Pinned Python dependencies
+└── README.md                  # Project documentation
+
 ```
 
-## Data and model
+---
 
-The starter recipe catalog is curated project data and is stored in `data/processed/recipes.csv`. `data/raw/README.md` documents the raw-data boundary and optional external data acquisition. No Kaggle dataset or personal image is bundled. If the team later uses a Kaggle recipe dataset, acquire it through Kaggle's official download flow, retain its license and source metadata, and keep the original files in `data/raw/`; write cleaned project-specific data to `data/processed/`.
+## 🧪 Run the Regression Tests
 
-The classifier uses torchvision's pretrained MobileNetV3-Small weights. It is not fine-tuned on a food dataset; supported ImageNet labels are mapped into a small ingredient vocabulary. A food-specific model or transfer-learning experiment can replace this component without changing the recipe-ranking module. We do not send images to third-party vision APIs.
-
-## Rubric-oriented checklist
-
-- **Easy execution:** pinned requirements, Python 3.10/3.11 quickstart, one-command Streamlit launch, and offline sample walkthrough.
-- **Modularity:** separate UI, vision, normalization, recipe-ranking, and nutrition modules.
-- **Traditional AI:** local pretrained vision classification plus explainable ingredient-overlap ranking; no vision-LLM wrapper.
-- **Data handling:** raw/processed separation, source and licensing guidance, and curated processed starter data.
-- **Documentation:** proposal, design document, limitations, and assistant coding rules.
-
-## Limitations
-
-Lighting, occlusion, camera angle, packaging, and ImageNet's generic class labels can reduce recognition quality. The vocabulary intentionally excludes unsupported foods. Recipe scores measure ingredient coverage, not taste, dietary suitability, or cooking quality. Calories and macros are approximate per-serving estimates and are not medical or dietary advice. Verify ingredients, allergens, food safety, and nutrition independently.
-
-## Run the regression checks
-
-Install pytest in the active environment, then run:
+To run the test suite locally using `pytest`:
 
 ```powershell
 python -m pip install pytest
 python -m pytest -q tests
+
+```
+
+```
+
 ```

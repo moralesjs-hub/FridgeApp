@@ -16,6 +16,22 @@ from src.utils import ingredient_from_label, normalize_ingredient, normalize_ing
 from src.vision_model import FoodRecognizer
 
 
+def test_custom_styles_are_injected_on_every_run(monkeypatch) -> None:
+    from src import backend
+
+    injected: list[str] = []
+    monkeypatch.setattr(
+        backend.st,
+        "markdown",
+        lambda body, **kwargs: injected.append(body),
+    )
+
+    backend.apply_custom_styles()
+    backend.apply_custom_styles()
+
+    assert len(injected) == 2
+
+
 def test_recipe_catalog_has_valid_diverse_starter_data() -> None:
     matcher = RecipeMatcher(ROOT / "data" / "processed" / "recipes.csv")
 
@@ -154,9 +170,14 @@ def test_model_failure_shows_manual_fallback_without_fake_no_detection(
     _predict_uploaded_image.clear()
     app = AppTest.from_file(str(ROOT / "src" / "app.py"), default_timeout=30).run()
     sample_path = ROOT / "data" / "raw" / "sample_produce.png"
-    app.file_uploader[0].upload(
-        sample_path.name, sample_path.read_bytes(), "image/png"
-    ).run()
+    if hasattr(app, "file_uploader") and len(app.file_uploader) > 0:
+        app.file_uploader[0].upload(
+            sample_path.name, sample_path.read_bytes(), "image/png"
+        ).run()
+    else:
+        app.session_state["uploaded_bytes"] = sample_path.read_bytes()
+        app.session_state["uploaded_name"] = sample_path.name
+        app.run()
 
     assert not app.exception
     assert any("model unavailable for test" in item.value for item in app.warning)

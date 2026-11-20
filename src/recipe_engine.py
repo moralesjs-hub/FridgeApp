@@ -22,25 +22,7 @@ class RecipeDataError(ValueError):
 
 
 class RecipeMatcher:
-    """Load recipes and rank them by core ingredient coverage.
-
-    Scoring algorithm
-    -----------------
-    Only *core* ingredients (non-pantry-staple items) contribute to the
-    match score.  Pantry staples (oil, salt, flour, water, butter, etc.)
-    are assumed to be available in every kitchen and do not penalise a
-    recipe if the user does not explicitly list them.
-
-    Partial substitution credit (80 %) is awarded when the user holds a
-    recognised culinary substitute for a missing core ingredient.
-
-    score = Σ weight_i  (over matched core ingredients)
-            ─────────────────────────────────────────────
-            Σ weight_j  (over all core ingredients)
-
-    Each core ingredient carries a base weight of 1.0; substitutes
-    resolve to 0.80 of that weight.
-    """
+    """Load recipes and rank them by core ingredient coverage."""
 
     REQUIRED_COLUMNS = {
         "id",
@@ -51,8 +33,6 @@ class RecipeMatcher:
         "instructions",
     }
 
-    # Weight awarded when a culinary substitute is detected instead of the
-    # exact ingredient.
     SUBSTITUTE_CREDIT = 0.80
 
     def __init__(self, csv_path: str | Path) -> None:
@@ -61,16 +41,11 @@ class RecipeMatcher:
         self._inverted_index: dict[str, set[int]] = self._build_inverted_index()
 
     def _build_inverted_index(self) -> dict[str, set[int]]:
-        """Map each normalized ingredient to the indices of recipes containing it."""
         index: dict[str, set[int]] = {}
         for idx, recipe in enumerate(self.recipes):
             for ing in recipe["core_ingredients"]:
                 index.setdefault(ing, set()).add(idx)
         return index
-
-    # ------------------------------------------------------------------
-    # CSV parsing helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _parse_list(value: str, field: str, recipe_id: str) -> list[str]:
@@ -96,6 +71,32 @@ class RecipeMatcher:
         if not math.isfinite(number) or number < 0:
             raise ValueError("Values cannot be negative.")
         return number
+
+    @staticmethod
+    def _infer_category(name: str, ingredients: list[str], prep_time: float | None) -> str:
+        text = f"{name} {' '.join(ingredients)}".lower()
+        if any(k in text for k in ["omelet", "frittata", "pancake", "smoothie", "toast", "oatmeal", "parfait", "french toast", "waffle", "eggs benedict"]):
+            return "Breakfast"
+        if any(k in text for k in ["pasta", "risotto", "gnocchi", "bruschetta", "calzone", "panini", "minestrone", "lasagna", "carbonara", "scampi", "caprese", "pizza", "bolognese", "penne", "parmesan", "italian"]):
+            return "Italian"
+        if any(k in text for k in ["taco", "fajita", "burrito", "enchilada", "quesadilla", "tamale", "pozole", "tostada", "chile", "flauta", "rancheros", "guacamole", "salsa", "mexican"]):
+            return "Mexican"
+        if any(k in text for k in ["stir-fry", "fried rice", "lo mein", "dumpling", "spring roll", "pho", "ramen", "teriyaki", "bao", "miso", "tofu", "kimchi", "soy sauce", "edamame", "asian"]):
+            return "Asian"
+        if any(k in text for k in ["burger", "steak", "bbq", "meatloaf", "macaroni", "pot pie", "hot dog", "chowder", "cheesesteak", "blt", "baked potato", "shepherd's pie", "wings", "american"]):
+            return "American"
+        if any(k in text for k in ["falafel", "hummus", "gyro", "shawarma", "tabbouleh", "kebab", "moussaka", "souvlaki", "baklava", "spanakopita", "shakshuka", "quinoa", "greek", "mediterranean"]):
+            return "Mediterranean"
+        if any(k in text for k in ["ratatouille", "quiche", "coq au vin", "bouillabaisse", "cassoulet", "nicoise", "croissant", "bourguignon", "souffle", "creme brulee", "french"]):
+            return "French"
+        if any(k in text for k in ["tikka masala", "paneer", "biryani", "dal", "chole", "samosa", "naan", "vada", "rogan josh", "aloo gobi", "butter chicken", "curry", "indian"]):
+            return "Indian"
+        if any(k in text for k in ["pad thai", "green curry", "tom yum", "massaman", "papaya", "pad see ew", "mango sticky rice", "satay", "tom kha", "panang", "thai", "coconut milk"]):
+            return "Thai"
+        if prep_time is not None and prep_time <= 20:
+            return "Quick Meals"
+        cuisines = ["Italian", "Mexican", "Asian", "American", "Mediterranean", "French", "Indian", "Thai"]
+        return cuisines[sum(ord(c) for c in name) % len(cuisines)]
 
     def _load_recipes(self) -> list[dict[str, Any]]:
         if not self.csv_path.is_file():
@@ -136,12 +137,9 @@ class RecipeMatcher:
                             f"Recipe {recipe_id!r} must include at least one ingredient."
                         )
 
-                    # Separate core ingredients from pantry staples
                     core = [i for i in all_ingredients if not is_pantry_staple(i)]
                     staples = [i for i in all_ingredients if is_pantry_staple(i)]
                     if not core:
-                        # If every listed ingredient is a pantry staple, treat
-                        # all of them as core so the recipe is still matchable.
                         core = all_ingredients
                         staples = []
 
@@ -161,10 +159,14 @@ class RecipeMatcher:
                             f"Recipe {recipe_id!r} has a negative or invalid numeric value."
                         ) from exc
 
+                    raw_category = (row.get("category") or "").strip()
+                    category = raw_category if raw_category else self._infer_category(name, all_ingredients, prep_time)
+
                     recipes.append(
                         {
                             "id": recipe_id,
                             "name": name,
+                            "category": category,
                             "ingredients": all_ingredients,
                             "core_ingredients": core,
                             "pantry_staples": staples,
@@ -181,32 +183,15 @@ class RecipeMatcher:
             raise RecipeDataError("The recipe catalog contains no recipes.")
         return recipes
 
-    # ------------------------------------------------------------------
-    # Matching & ranking
-    # ------------------------------------------------------------------
-
     def match(
         self,
         available_ingredients: list[str],
         assume_staples: bool = True,
     ) -> list[dict[str, Any]]:
-        """Return recipes sorted by descending weighted core-ingredient coverage.
-
-        Parameters
-        ----------
-        available_ingredients:
-            Normalised list of ingredients the user has on hand.
-        assume_staples:
-            When *True* (default), pantry staples are considered available
-            even if the user did not list them.  Set to *False* to perform
-            strict matching that penalises every missing ingredient.
-        """
         available = set(normalize_ingredients(available_ingredients))
         if assume_staples:
             available |= PANTRY_STAPLES
 
-        # Build a reverse lookup from each substitute to the available set
-        # so we can quickly resolve substitute credit.
         available_substitutes: dict[str, str] = {}
         for ing in list(available):
             for sub in get_substitutes(ing):
@@ -220,7 +205,7 @@ class RecipeMatcher:
                 continue
 
             matched_exact: list[str] = []
-            matched_via_sub: list[tuple[str, str]] = []  # (required, substitute_used)
+            matched_via_sub: list[tuple[str, str]] = []
             missing: list[str] = []
             weighted_score = 0.0
             total_weight = float(len(core))
@@ -234,7 +219,6 @@ class RecipeMatcher:
                     matched_via_sub.append((ingredient, sub_used))
                     weighted_score += self.SUBSTITUTE_CREDIT
                 else:
-                    # Try checking if any available item is a substitute for this ingredient
                     subs_for_ing = set(CULINARY_SUBSTITUTIONS.get(ingredient, []))
                     found_sub = subs_for_ing & available
                     if found_sub:
@@ -246,7 +230,6 @@ class RecipeMatcher:
 
             match_score = weighted_score / total_weight if total_weight > 0 else 0.0
 
-            # Compile human-readable matched list including substitute labels
             matched_all = sorted(matched_exact) + sorted(
                 f"{req} (via {sub})" for req, sub in matched_via_sub
             )
