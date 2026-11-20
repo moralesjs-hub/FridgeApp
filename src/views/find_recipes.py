@@ -96,7 +96,7 @@ def show() -> None:
             # ── Render image + run CV pipeline ────────────────────────────
             if image is not None:
                 if is_demo:
-                    st.image(image, caption="Sample view", use_container_width=True)
+                    st.image(image, caption="Sample view", width="stretch")
                     st.info(
                         "Offline demo — ingredients are pre-seeded for a predictable walkthrough; "
                         "these are not model predictions."
@@ -120,7 +120,7 @@ def show() -> None:
                         if annotated_image is not None
                         else "Uploaded image"
                     )
-                    st.image(display_img, caption=caption, use_container_width=True)
+                    st.image(display_img, caption=caption, width="stretch")
                     if not detections and not inference_failed:
                         st.info(
                             "No supported ingredients were recognized at this confidence threshold. "
