@@ -54,10 +54,10 @@ def show() -> None:
                 data="\n".join(items),
                 file_name="shopping_list.txt",
                 mime="text/plain",
-                use_container_width=True,
+                width="stretch",
             )
         with col_clr:
-            if st.button("🗑️ Clear Shopping List", type="secondary", use_container_width=True):
+            if st.button("🗑️ Clear Shopping List", type="secondary", width="stretch"):
                 st.session_state["shopping_list"].clear()
                 st.rerun()
 
