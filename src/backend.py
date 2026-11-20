@@ -1102,7 +1102,7 @@ def render_recipe(recipe: dict, servings: int, context: str = "workspace") -> No
                 col.metric(label, f"{amt:.1f}g", f"{pct:.0f}% daily")
 
         # Donut chart
-        st.altair_chart(_build_nutrition_chart(nutrition), use_container_width=True)
+        st.altair_chart(_build_nutrition_chart(nutrition), width="stretch")
 
         # Instructions
         st.markdown("**Instructions**")
