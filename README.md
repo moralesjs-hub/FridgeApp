@@ -69,61 +69,62 @@ The project is organized into separate folders for the application, recipe data,
 ```text
 FridgeApp/
 ├── .ai/
-│   └── codingrules.md              # Project coding guidelines
+│   └── codingrules.md               # Project coding guidelines
 ├── .streamlit/
-│   ├── config.toml                 # Streamlit configuration
-│   └── style.css                   # Custom app styling
+│   ├── config.toml                  # Streamlit configuration
+│   └── style.css                    # Custom app styling
 ├── assets/
-│   └── ingredia_logo.png           # App logo
+│   └── ingredia_logo.png            # App logo
 ├── data/
 │   ├── raw/
-│   │   ├── README.md               # Sample data information
+│   │   ├── README.md                # Sample data information
 │   │   ├── annotations.example.json # Example image annotations
 │   │   ├── sample_breakfast.png
 │   │   ├── sample_fruit.png
-│   │   └── sample_produce.png       # Sample images for testing
+│   │   └── sample_produce.png        # Sample images for testing
 │   └── processed/
-│       └── recipes.csv             # Recipe dataset
+│       └── recipes.csv              # Recipe dataset with 200 recipes
 ├── docs/
-│   ├── project_design_doc.md       # Project design document
-│   └── project_proposal.md         # Project proposal
+│   ├── project_design_doc.md        # Project design document
+│   └── project_proposal.md          # Project proposal
 ├── models/
-│   └── README.md                   # Model checkpoint information
+│   └── README.md                    # Model checkpoint information
 ├── scratch/
-│   └── expand_recipes.py           # Recipe dataset utility
+│   └── expand_recipes.py            # Recipe dataset utility
 ├── src/
 │   ├── __init__.py
-│   ├── app.py                       # Main Streamlit application
-│   ├── backend.py                   # Shared app functions and UI logic
-│   ├── cloud_vision.py              # Gemini ingredient recognition
-│   ├── detector.py                  # Local object detection
-│   ├── ingredient_classifier.py     # Fine-tuned model support
-│   ├── nutrition.py                 # Nutrition calculations
-│   ├── recipe_engine.py             # Recipe matching and ranking
-│   ├── utils.py                     # Ingredient names and substitutions
-│   ├── vision_model.py              # Local image classification
+│   ├── app.py                        # Main Streamlit application
+│   ├── backend.py                    # Shared app functions and UI logic
+│   ├── cloud_vision.py               # Gemini ingredient recognition
+│   ├── detector.py                   # Local object detection
+│   ├── ingredient_classifier.py      # Fine-tuned model support
+│   ├── nutrition.py                  # Nutrition calculations
+│   ├── recipe_engine.py              # Recipe matching and ranking
+│   ├── utils.py                      # Ingredient names and substitutions
+│   ├── validate_recipes.py           # Recipe dataset validation
+│   ├── vision_model.py               # Local image classification
 │   └── views/
-│       ├── explore_catalog.py       # Recipe catalog page
-│       ├── find_recipes.py          # Ingredient detection and recipes
-│       ├── saved_recipes.py         # Saved recipes page
-│       ├── settings.py              # Settings page
-│       └── shopping_list.py         # Shopping list page
+│       ├── explore_catalog.py        # Recipe catalog and filtering
+│       ├── find_recipes.py           # Ingredient detection and recipes
+│       ├── saved_recipes.py          # Saved recipes page
+│       ├── settings.py               # Settings page
+│       └── shopping_list.py          # Shopping list page
 ├── tests/
-│   ├── test_detector_and_engine.py  # Detection and recipe engine tests
-│   ├── test_fridgeapp.py            # Application tests
-│   └── test_training.py             # Training-related tests
+│   ├── test_detector_and_engine.py   # Detection and recipe engine tests
+│   ├── test_fridgeapp.py             # Application tests
+│   └── test_training.py              # Training-related tests
 ├── train/
-│   ├── README.md                    # Model training instructions
+│   ├── README.md                     # Model training instructions
 │   ├── __init__.py
-│   ├── __main__.py                  # Training entry point
-│   ├── dataset.py                   # Training dataset preparation
-│   ├── huggingface.py               # Hugging Face dataset loading
-│   ├── train_classifier.py          # Image classifier training
-│   ├── train_detector.py            # Object detection training
-│   └── train_hf_classifier.py       # Hugging Face classifier training
-├── .gitignore                       # Files excluded from Git
-├── README.md                        # Project overview and setup
-└── requirements.txt                 # Python dependencies
+│   ├── __main__.py                   # Training entry point
+│   ├── dataset.py                    # Training dataset preparation
+│   ├── huggingface.py                # Hugging Face dataset loading
+│   ├── train_classifier.py           # Image classifier training
+│   ├── train_detector.py             # Object detection training
+│   └── train_hf_classifier.py        # Hugging Face classifier training
+├── .gitignore                        # Files excluded from Git
+├── README.md                         # Project overview and setup
+└── requirements.txt                  # Python dependencies
 ```
 
 ## How to Run the App
@@ -214,40 +215,6 @@ We also included training scripts for fine-tuning classification and detection m
 
 The `train/` folder contains the training code, and the `models/` folder is used for saved model checkpoints.
 
-```text
-FridgeApp/
-├── .ai/                     # Project coding guidance
-├── .streamlit/              # Streamlit theme and configuration
-├── assets/                  # Ingredia branding and images
-├── data/
-│   ├── raw/                 # Sample images and dataset documentation
-│   └── processed/
-│       └── recipes.csv      # Recipe catalog
-├── docs/                    # Project proposal and design documents
-├── models/                  # Optional trained model checkpoints
-├── scratch/                 # Development utilities
-├── src/
-│   ├── app.py               # Streamlit application entry point
-│   ├── backend.py           # Shared UI and application logic
-│   ├── cloud_vision.py      # Gemini ingredient recognition
-│   ├── detector.py          # Local object detection
-│   ├── ingredient_classifier.py
-│   ├── vision_model.py      # Local image recognition
-│   ├── recipe_engine.py     # Recipe loading and matching
-│   ├── validate_recipes.py  # Recipe dataset validation & quality checks
-│   ├── nutrition.py         # Nutrition calculations
-│   ├── utils.py             # Ingredient normalization
-│   └── views/
-│       ├── find_recipes.py
-│       ├── explore_catalog.py
-│       ├── saved_recipes.py
-│       ├── shopping_list.py
-│       └── settings.py
-├── tests/                   # Automated tests
-├── train/                   # Model training pipeline
-├── requirements.txt         # Python dependencies
-└── README.md                # Main project documentation
-```
 The current project includes the training scripts but does not include custom-trained checkpoints. The app can still run using pretrained models.
 
 More information about training is available in `train/README.md`.
