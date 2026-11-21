@@ -214,6 +214,40 @@ We also included training scripts for fine-tuning classification and detection m
 
 The `train/` folder contains the training code, and the `models/` folder is used for saved model checkpoints.
 
+```text
+FridgeApp/
+├── .ai/                     # Project coding guidance
+├── .streamlit/              # Streamlit theme and configuration
+├── assets/                  # Ingredia branding and images
+├── data/
+│   ├── raw/                 # Sample images and dataset documentation
+│   └── processed/
+│       └── recipes.csv      # Recipe catalog
+├── docs/                    # Project proposal and design documents
+├── models/                  # Optional trained model checkpoints
+├── scratch/                 # Development utilities
+├── src/
+│   ├── app.py               # Streamlit application entry point
+│   ├── backend.py           # Shared UI and application logic
+│   ├── cloud_vision.py      # Gemini ingredient recognition
+│   ├── detector.py          # Local object detection
+│   ├── ingredient_classifier.py
+│   ├── vision_model.py      # Local image recognition
+│   ├── recipe_engine.py     # Recipe loading and matching
+│   ├── validate_recipes.py  # Recipe dataset validation & quality checks
+│   ├── nutrition.py         # Nutrition calculations
+│   ├── utils.py             # Ingredient normalization
+│   └── views/
+│       ├── find_recipes.py
+│       ├── explore_catalog.py
+│       ├── saved_recipes.py
+│       ├── shopping_list.py
+│       └── settings.py
+├── tests/                   # Automated tests
+├── train/                   # Model training pipeline
+├── requirements.txt         # Python dependencies
+└── README.md                # Main project documentation
+```
 The current project includes the training scripts but does not include custom-trained checkpoints. The app can still run using pretrained models.
 
 More information about training is available in `train/README.md`.
