@@ -42,6 +42,15 @@ def show() -> None:
         key="catalog_category_pills",
     )
 
+    # Preparation time filter for user
+        # Preparation time filter
+    time_limit = st.selectbox(
+        "Maximum preparation time",
+        ["Any time", "15 minutes", "30 minutes",
+         "45 minutes", "60 minutes"],
+        key="catalog_time_filter"
+    )
+
     # ── Fetch full recipe list (cached inside matcher) ────────────────────
     # matcher.match([]) returns every recipe sorted by name; cheap call since
     # the underlying data is already in memory via @st.cache_resource
@@ -77,6 +86,17 @@ def show() -> None:
             if q in r["name"].lower()
             or q in r.get("category", "").lower()
             or any(q in ing.lower() for ing in r.get("ingredients", []))
+        ]
+
+        # Time filter for recipes
+            # Filter recipes by the selected preparation time
+    if time_limit != "Any time":
+        max_minutes = int(time_limit.split()[0])
+
+        all_recipes = [
+            recipe for recipe in all_recipes
+            if recipe.get("prep_time") is not None
+            and recipe["prep_time"] <= max_minutes
         ]
 
     # ── Render results ────────────────────────────────────────────────────
