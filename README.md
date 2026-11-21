@@ -102,6 +102,7 @@ Checkpoints land in `models/` and are picked up automatically by the app. Full s
 │   ├── vision_model.py        # Local torchvision food-label recognition
 │   ├── recipe_engine.py       # Staple-aware recipe scoring & ranking
 │   ├── nutrition.py           # Serving-aware nutrition estimates & macros
+│   ├── validate_recipes.py    # Recipe dataset validation & quality checks
 │   └── utils.py               # Normalization, culinary aliases, & pantry staples
 ├── tests/                     # Pytest regression and integration test suite
 ├── requirements.txt           # Pinned Python dependencies
