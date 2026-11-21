@@ -28,7 +28,7 @@ Since image recognition is not always accurate, users can add, remove, or correc
 
 ### Recipe Recommendations
 
-The app compares the detected or selected ingredients with a recipe dataset containing 120 recipes.
+The app compares the detected or selected ingredients with a recipe dataset containing 200 recipes.
 
 Recipes are ranked based on ingredient matches, while also considering common pantry ingredients and supported substitutions.
 
@@ -36,7 +36,7 @@ Each recommendation includes information such as the match score, missing ingred
 
 ### Recipe Catalog
 
-Users can browse the available recipes without uploading an image.
+Users can browse the available recipes without uploading an image. The catalog also includes search and filtering options to help users find recipes based on their preferences.
 
 ### Nutrition Information
 
