@@ -1,54 +1,56 @@
 # Project Proposal: AI Food Recognition and Recipe Suggestions
 
-**Course:** CSCI 270 — Applied AI, College of Charleston  
-**Team:** Philip Pagana, Snovi Patel, Jaden Morales, Amelia West
+**Course:** CSCI 270 Applied AI, College of Charleston  
+**Team Members:** Philip Pagana, Snovi Patel, Jaden Morales, Amelia West
 
-## Problem statement
+## Problem Statement
 
-People often have ingredients at home but are unsure what to cook with them. This project explores whether a computer-vision model can identify a useful subset of ingredients from a refrigerator photo and connect those ingredients to practical recipe suggestions. The interface will make recognition errors easy to correct and will explain which ingredients match and which are missing.
+People often have ingredients at home but don't know what meals they can make with them. Our goal is to create an application that uses AI to recognize food ingredients from images and recommend recipes based on what is available.
 
-## Proposed solution
+One challenge is that image recognition is not always accurate, especially when multiple ingredients are in the same picture. To handle this, we allow users to review and correct the detected ingredients before getting recipe recommendations.
 
-The application uses an explainable, two-stage local computer-vision detection pipeline implemented with torchvision:
-1. **Stage 1 (Object Detection):** Faster R-CNN with a MobileNetV3-Large FPN backbone (pretrained on COCO) detects individual food items with spatial bounding boxes.
-2. **Stage 2 (Classification):** MobileNetV3-Small (pretrained on ImageNet) provides scene-level multi-label predictions across nightshades, alliums, dairy, meats, and seafood.
+## Proposed Solution
 
-A 200+ alias vocabulary normalizes detected objects and ingredients into canonical keys. An enhanced, staple-aware recipe engine matches detected ingredients against a 60-recipe catalog. Pantry staples (salt, pepper, oil, flour) are automatically assumed present, and realistic culinary substitutions (e.g. lime for lemon) are granted 80% partial credit. The interface provides confidence adjustment, bounding box visualization, nutrition scaling, and transparent ingredient gap analysis.
+Our project, Ingredia, is a web application built using Streamlit. Users can upload an image of their ingredients, and the app will try to identify them using AI.
 
-The project adheres strictly to course guidelines: it uses local, explainable CV and heuristic algorithms, never sending user images to external cloud APIs or black-box vision-LLMs. Bundled sample images allow offline demonstration without model downloads.
+We use Google Gemini for ingredient recognition when available, along with two local pretrained models: Faster R-CNN for object detection and MobileNetV3-Small for image classification. The local models are used as a fallback when Gemini is unavailable.
+
+Once the ingredients are identified, the app compares them with our recipe dataset and recommends meals based on what the user has. It also shows missing ingredients, cooking instructions, and estimated nutrition information.
 
 ## Data
 
-- **Recipe data:** A curated, validated catalog of 120 recipes in `data/processed/recipes.csv`, spanning breakfast, lunch, dinner, soups, and sides with ingredient lists, preparation steps, and macronutrient profiles.
-- **Images:** Bundled illustrative demo images in `data/raw/` for reproducible testing, plus support for arbitrary user image uploads processed in-memory.
-- **External datasets:** None required; raw/processed data boundaries are preserved.
+We use a CSV dataset containing 120 recipes, including ingredients, preparation time, instructions, and nutrition information.
 
-## AI and ranking approach
+For image recognition, we use pretrained models with ImageNet and COCO weights, along with sample food images for testing. We also included training scripts that support food-specific image datasets.
 
-1. Preprocess uploaded images using standard torchvision transforms and run local two-stage inference (Faster R-CNN + MobileNetV3-Small).
-2. Filter detections via user-specified confidence thresholds and map labels to canonical ingredients.
-3. Compute recipe match scores using weighted core-ingredient matching:
-   $$\text{score} = \frac{\sum \text{matched\_core\_weights}}{|core\_ingredients|}$$
-   with 0.8 partial credit for registered culinary substitutions.
-4. Present ranked recipes with missing ingredient callouts, substitution notes, and serving-scaled nutritional breakdowns.
+Ingredient names are cleaned and standardized so the recipe engine can match them correctly.
 
-ImageNet is a general object-classification dataset, not a food-specific detector. The mapping is therefore intentionally limited, and human correction is a core part of the workflow.
+## AI and Ranking Approach
 
-## Success criteria
+Our system first processes the uploaded image and identifies possible ingredients. Users can then make changes to the ingredient list if needed.
 
-- The application launches with `streamlit run src/app.py` after installing the pinned requirements.
-- A bundled sample can exercise the interface offline.
-- Users can upload an image, adjust the threshold, edit ingredients, and receive ranked recipes with transparent match and nutrition details.
-- Source modules remain separated, input data decisions are documented, and limitations are clearly presented.
+The recipe engine compares the ingredients with the recipes in our dataset and calculates match scores. Exact ingredient matches receive full credit, while supported substitutions receive partial credit. Common pantry ingredients are also considered.
+
+Recipes with higher match scores are shown first, along with any missing ingredients. This helps users find meals they can make with what they already have.
+
+## Success Criteria
+
+We consider our project successful if:
+
+- Users can upload images and receive ingredient predictions.
+- The app allows users to correct detected ingredients.
+- The recipe engine recommends relevant recipes based on available ingredients.
+- Recipes display match scores, missing ingredients, and nutrition information.
+- The application runs correctly and handles errors.
+
+We will test the application using sample food images and automated tests to make sure the main features work properly.
 
 ## Timeline
 
-| Phase | Work | Deliverable |
-|---|---|---|
-| 1. Scope and repository | Agree on requirements, folder layout, AI policy, and data boundaries | Repository skeleton and coding rules |
-| 2. Research and design | Compare lightweight vision models and matching approaches | Proposal and design document |
-| 3. Data and AI modules | Curate starter recipes; implement normalization, inference, matching, and nutrition | Modular source and processed CSV |
-| 4. Interface integration | Build Streamlit upload, review controls, demo images, and recipe cards | Runnable end-to-end app |
-| 5. Validation and polish | Verify installation/launch, correct documentation, and review limitations | Final README and demo |
-
-The phases are ordered project milestones; the team should record actual dates and incremental contributions in its course repository history.
+| Phase | Tasks |
+|---|---|
+| Planning | Chose the project idea, divided team responsibilities, and set up GitHub |
+| Research and Design | Researched AI models, planned the recipe matching system, and created the project design |
+| Development | Built the image recognition system, prepared the recipe dataset, and developed the Streamlit interface |
+| Integration | Combined everyone's code, added Gemini recognition, and improved the app's design and features |
+| Testing and Finalization | Tested ingredient detection and recipe recommendations, fixed issues, and updated the documentation for submission |

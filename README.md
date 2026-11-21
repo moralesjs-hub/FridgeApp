@@ -1,127 +1,400 @@
+# Ingredia
+
 <div align="center">
   <img src="assets/ingredia_logo.png" width="140" alt="Ingredia Logo">
-  <h1>Ingredia</h1>
-  <p><b>Good food starts with what you have.</b></p>
+  <p><strong>Good food starts with what you have.</strong></p>
 </div>
 
----
+**Ingredia** is an AI-powered recipe recommendation and pantry intelligence application that helps users discover meals using ingredients they already have at home.
 
-**Ingredia** is an AI-powered recipe recommendation and pantry intelligence application that helps users discover meals based on ingredients they already have at home. Users can upload a refrigerator or pantry photo, review AI-detected items, and explore a rich catalog of categorized recipes complete with estimated calories, interactive macronutrient charts, and nutritional breakdowns.
+Users can upload photos of food or refrigerator contents, review AI-detected ingredients, explore recipe recommendations, view estimated nutrition information, save favorite recipes, and organize shopping lists.
 
-Developed as a **CSCI 270 Applied AI** team project at the **College of Charleston**.
-
----
-
-## 👥 Team
-* **Philip Pagana**
-* **Snovi Patel**
-* **Jaden Morales**
-* **Amelia West**  
-* *College of Charleston · CSCI 270 — Applied AI*
+Developed for **CSCI 270 — Applied AI** at the **College of Charleston**.
 
 ---
 
-## ✨ Key Features & Architecture
-1. **Intelligent Computer Vision & Object Detection**:
-   - **Google Gemini Cloud Vision**: Automatically recognizes multiple food items and renders bounding boxes with confidence scores.
-   - **Two-Stage Local Fallback**: Uses pretrained Faster R-CNN (MobileNetV3-Large FPN) and MobileNetV3-Small (ImageNet) models when offline or unconfigured.
-   - **Container Filtering**: Automatically excludes non-food storage containers (bottles, jars, jugs) from pantry inventory.
-2. **Dynamic Recipe Synthesis & Catalog**: Matches available inventory against a curated catalog of **500+ recipes** featuring scrollable category filter pills, dynamic pagination, and staple-aware scoring.
-3. **Custom UI & Branding**: Styled with a seamless, custom cream background (`#fdfaec`), custom typography (`Fredoka` & `Plus Jakarta Sans`), and the official brand logo.
-4. **Nutrition & Macro Tracking**: Interactive Altair donut charts illustrating protein, carbohydrate, and fat distributions alongside benchmark percentages.
-5. **Interactive Tools**: Dynamic shopping list exporter and favorited recipe bookmarking.
+## Team Members
+
+- **Snovi Patel**
+- **Jaden Morales**
+- **Philip Pagana**
+- **Amelia West**
+
+## Key Features
+
+### 1. AI-Powered Ingredient Recognition
+
+Ingredia supports two image-recognition approaches:
+
+**Google Gemini Cloud Vision**
+- Uses Gemini to identify ingredients in uploaded images when an API key is configured.
+- Supports identifying multiple ingredients from a single image.
+- Can provide annotated detection results.
+
+**Local Computer Vision Fallback**
+- Uses pretrained Faster R-CNN with MobileNetV3-Large FPN and MobileNetV3-Small models.
+- Supports ingredient classification and object detection.
+- Allows image recognition without a Gemini API key.
+- Uses confidence thresholds and ingredient normalization to process predictions.
+
+Recognition accuracy depends on the image and the models being used.
+
+### 2. Recipe Recommendations
+
+Ingredia matches detected or selected ingredients against a recipe catalog.
+
+Features include:
+- Ingredient-based recipe matching.
+- Ingredient normalization and culinary substitutions.
+- Pantry-staple-aware recipe ranking.
+- Recipe instructions and preparation times.
+- Recipe browsing by category and keyword.
+- Recipe recommendations based on available ingredients.
+
+**Current dataset:** 120 recipes in `data/processed/recipes.csv`.
+
+The catalog can be expanded by adding valid recipe records while preserving the required CSV structure.
+
+### 3. Nutrition Information
+
+Ingredia provides estimated nutritional information for recipes, including:
+
+- Calories per serving.
+- Protein.
+- Carbohydrates.
+- Fat.
+- Interactive nutrition visualizations.
+- Serving-size adjustments.
+
+Nutrition values are estimates and should not be treated as verified dietary measurements.
+
+### 4. Interactive Application Features
+
+Ingredia includes a multipage Streamlit interface with:
+
+- **My Fridge:** Upload food images and receive ingredient-based recommendations.
+- **Explore Recipe Catalog:** Browse recipes using category filters and keyword search.
+- **Saved Recipes:** Access bookmarked recipes.
+- **Shopping List:** Organize ingredients needed for meals.
+- **Settings:** Adjust detection confidence, recipe matching preferences, and serving sizes.
+
+### 5. Custom Interface and Branding
+
+The application includes:
+- Ingredia branding and logo.
+- Custom Streamlit styling.
+- Cream-colored interface.
+- Recipe cards and navigation.
+- Interactive controls and visualizations.
 
 ---
 
-## 🚀 Quickstart
+## Technology Stack
 
-Use **Python 3.10** or **3.11**. From the repository root:
+| Component | Technology |
+|---|---|
+| Programming language | Python |
+| User interface | Streamlit |
+| Cloud ingredient recognition | Google Gemini |
+| Local image classification | PyTorch, Torchvision, MobileNetV3-Small |
+| Local object detection | Faster R-CNN with MobileNetV3-Large FPN |
+| Recipe recommendation | Python-based ingredient matching |
+| Recipe storage | CSV |
+| Data processing | Pandas, NumPy |
+| Nutrition visualization | Altair |
+| Model training | PyTorch and optional Hugging Face datasets |
+| Testing | Pytest |
 
-```powershell
-# 1. Create and activate a virtual environment
-python -m venv .venv
-# Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# macOS/Linux:
-# source .venv/bin/activate
+---
 
-# 2. Upgrade pip and install dependencies
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt --extra-index-url [https://download.pytorch.org/whl/cpu](https://download.pytorch.org/whl/cpu)
+## Installation and Setup
 
-# 3. Launch the Streamlit application
-streamlit run src/app.py
+### Requirements
 
+- Python 3.10 or 3.11 recommended.
+- Internet access for initial dependency and pretrained-model downloads.
+- A Google Gemini API key is optional.
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/moralesjs-hub/FridgeApp.git
+cd FridgeApp
 ```
 
-Open the local URL printed by Streamlit (`http://localhost:8501`). Select one of the bundled preset samples (`Produce drawer`, `Breakfast basics`, `Fruit and yogurt`) or upload your own JPG/PNG image (up to 10 MB).
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment.
+
+**macOS/Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+**Windows PowerShell:**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+### 3. Install Dependencies
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+For a CPU-only PyTorch installation, consult the official PyTorch installation instructions for your operating system.
+
+### 4. Run Ingredia
+
+```bash
+python -m streamlit run src/app.py
+```
+
+Open the local URL shown in the terminal, typically:
+
+`http://localhost:8501`
+
+You can upload a JPG or PNG image or use the sample images provided by the application.
 
 ---
 
-## 🔑 Gemini API Setup (Optional)
+## Optional Gemini API Configuration
 
-Ingredia uses Google Gemini to improve ingredient recognition and identify multiple food items in a photo.
+Ingredia supports Gemini-based ingredient recognition.
 
-1. Visit [Google AI Studio](https://aistudio.google.com/apikey) to create your API key.
-2. Create a `.env` file in the root project folder.
-3. Add your key to the file:
+### Setup
+
+1. Visit [Google AI Studio](https://aistudio.google.com/apikey).
+2. Generate a Gemini API key.
+3. Create a `.env` file in the repository root.
+4. Add the following:
+
 ```env
 GEMINI_API_KEY=your_api_key_here
-
 ```
 
+5. Save the file and restart Streamlit.
 
-4. Save the file and restart Streamlit. *(The `.env` file is excluded via `.gitignore` for security).* If unconfigured, Ingredia seamlessly falls back to local computer vision models.
+**Security:** Do not commit your actual API key to GitHub. The `.env` file is excluded through `.gitignore`.
+
+### Recognition Fallback
+
+When Gemini is unavailable, not configured, or does not return usable detections, the application can use its local computer vision pipeline.
+
+Uploaded images may be sent to Google's Gemini service when cloud recognition is enabled. Users should avoid uploading sensitive images.
 
 ---
 
-### Optional fine-tuning
+## AI Model Architecture
 
-On branch `train/vision-model`, add a JSON manifest at `data/raw/annotations.json` (see `data/raw/annotations.example.json`), then run:
+Ingredia combines cloud-based recognition with local computer vision.
 
-```powershell
+### Image Recognition Workflow
+
+1. The user uploads an image.
+2. The application attempts Gemini-based ingredient recognition when configured.
+3. If cloud recognition is unavailable or unsuccessful, the local recognition pipeline is used.
+4. Detected ingredient names are normalized.
+5. Ingredients are matched against the recipe catalog.
+6. The application displays recommendations, recipe information, and estimated nutrition.
+
+### Local Models
+
+The local pipeline uses:
+
+- **MobileNetV3-Small:** Image classification and ingredient-label mapping.
+- **Faster R-CNN with MobileNetV3-Large FPN:** Object detection and bounding-box predictions.
+- Additional ingredient filtering and normalization logic.
+
+The application uses pretrained model weights when compatible fine-tuned checkpoints are unavailable.
+
+---
+
+## Optional Model Fine-Tuning
+
+The repository includes training code contributed for ingredient classification and object detection.
+
+Training is optional. The application can run using pretrained models without completing custom training.
+
+### Training Dataset
+
+Training data can be provided through a JSON manifest:
+
+`data/raw/annotations.json`
+
+An example format is available at:
+
+`data/raw/annotations.example.json`
+
+Training records can include:
+- Image paths.
+- Ingredient labels.
+- Optional normalized bounding boxes.
+
+The training system also supports a Hugging Face ingredient-image dataset.
+
+### Train an Ingredient Classifier
+
+Using a local manifest:
+
+```bash
 python -m train --manifest data/raw/annotations.json --task classifier --epochs 5
 ```
 
-Checkpoints land in `models/` and are picked up automatically by the app. Full steps: `train/README.md`.
+Using the supported Hugging Face dataset:
 
-## Rubric-oriented checklist
-## 📂 Repository Map
+```bash
+python -m pip install datasets
+python -m train --hf-dataset Scuccorese/food-ingredients-dataset --task classifier --epochs 5
+```
+
+### Train an Object Detector
+
+For annotated datasets containing bounding boxes:
+
+```bash
+python -m train --manifest data/raw/annotations.json --task detector --epochs 5
+```
+
+### Model Checkpoints
+
+Training can produce:
+
+- `models/ingredient_classifier.pt`
+- `models/food_detector.pt`
+
+The application supports loading compatible fine-tuned checkpoints when they are present.
+
+**Note:** The repository includes the training implementation, but custom-trained checkpoint files are not bundled in the reviewed version. The default application uses pretrained models.
+
+For complete training instructions, see [`train/README.md`](train/README.md) and [`models/README.md`](models/README.md).
+
+---
+
+## Recipe Dataset
+
+The recipe catalog is stored in:
+
+`data/processed/recipes.csv`
+
+The current reviewed version contains **120 recipes**.
+
+The dataset includes fields for:
+- Recipe ID.
+- Recipe name.
+- Ingredients.
+- Calories per serving.
+- Preparation time.
+- Cooking instructions.
+- Protein.
+- Carbohydrates.
+- Fat.
+
+The recipe engine validates required fields, normalizes ingredient names, and derives recipe categories for browsing and matching.
+
+The catalog may be expanded without changing the overall application architecture, provided new records follow the expected schema.
+
+---
+
+## Repository Structure
 
 ```text
-├── .streamlit/                # Streamlit configuration & custom theme styling
-├── assets/                    # Official brand logo (ingredia_logo.png)
+FridgeApp/
+├── .ai/                     # Project coding guidance
+├── .streamlit/              # Streamlit theme and configuration
+├── assets/                  # Ingredia branding and images
 ├── data/
-│   ├── raw/                   # Bundled sample images & raw data documentation
-│   └── processed/             # Curated, normalized 500-recipe catalog (recipes.csv)
-├── docs/                      # Project proposal, design document, and design specs
+│   ├── raw/                 # Sample images and dataset documentation
+│   └── processed/
+│       └── recipes.csv      # Recipe catalog
+├── docs/                    # Project proposal and design documents
+├── models/                  # Optional trained model checkpoints
+├── scratch/                 # Development utilities
 ├── src/
-│   ├── app.py                 # Streamlit web application interface
-│   ├── cloud_vision.py        # Google Gemini AI ingredient recognition
-│   ├── detector.py            # Two-stage local food detector & box visualizer
-│   ├── vision_model.py        # Local torchvision food-label recognition
-│   ├── recipe_engine.py       # Staple-aware recipe scoring & ranking
-│   ├── nutrition.py           # Serving-aware nutrition estimates & macros
-│   ├── validate_recipes.py    # Recipe dataset validation & quality checks
-│   └── utils.py               # Normalization, culinary aliases, & pantry staples
-├── tests/                     # Pytest regression and integration test suite
-├── requirements.txt           # Pinned Python dependencies
-└── README.md                  # Project documentation
-
+│   ├── app.py               # Streamlit application entry point
+│   ├── backend.py           # Shared UI and application logic
+│   ├── cloud_vision.py      # Gemini ingredient recognition
+│   ├── detector.py          # Local object detection
+│   ├── ingredient_classifier.py
+│   ├── vision_model.py      # Local image recognition
+│   ├── recipe_engine.py     # Recipe loading and matching
+│   ├── validate_recipes.py  # Recipe dataset validation & quality checks
+│   ├── nutrition.py         # Nutrition calculations
+│   ├── utils.py             # Ingredient normalization
+│   └── views/
+│       ├── find_recipes.py
+│       ├── explore_catalog.py
+│       ├── saved_recipes.py
+│       ├── shopping_list.py
+│       └── settings.py
+├── tests/                   # Automated tests
+├── train/                   # Model training pipeline
+├── requirements.txt         # Python dependencies
+└── README.md                # Main project documentation
 ```
 
 ---
 
-## 🧪 Run the Regression Tests
+## Testing
 
-To run the test suite locally using `pytest`:
+The repository includes automated tests for application components, recipe matching, image detection, and training functionality.
 
-```powershell
-python -m pip install pytest
+Run the tests from the repository root:
+
+```bash
 python -m pytest -q tests
-
 ```
 
-```
+For manual testing:
 
-```
+1. Launch the Streamlit application.
+2. Upload a food image.
+3. Review detected ingredients.
+4. Check recipe recommendations and nutrition information.
+5. Browse the recipe catalog.
+6. Save a recipe.
+7. Check the shopping list.
+8. Verify settings and navigation.
+9. Test Gemini recognition when configured.
+10. Verify local recognition without Gemini.
+
+The presence of automated tests does not guarantee that every feature has passed testing in every environment.
+
+---
+
+## Project Documentation
+
+Additional project materials are available in:
+
+- `docs/` — project proposal, design documentation, and supporting specifications.
+- `train/README.md` — model training instructions.
+- `models/README.md` — checkpoint information.
+- `data/raw/README.md` — dataset information.
+
+---
+
+## Limitations and Future Improvements
+
+Current limitations include:
+
+- Ingredient recognition accuracy varies with image quality, lighting, and overlapping objects.
+- Pretrained models may misidentify unfamiliar ingredients.
+- Recipe recommendations depend on the available catalog.
+- Nutritional information is estimated.
+- Fine-tuned model performance depends on the quality and size of the training dataset.
+- Gemini recognition requires an API key and internet connectivity.
+
+Potential improvements include expanding the recipe catalog, improving ingredient detection with additional labeled images, and refining recommendation filters.
+
+---
+
+**Ingredia — Good food starts with what you have.**
+
+*CSCI 270 Applied AI | College of Charleston*
