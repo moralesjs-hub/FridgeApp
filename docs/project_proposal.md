@@ -49,8 +49,8 @@ We will test the application using sample food images and automated tests to mak
 
 | Phase | Tasks |
 |---|---|
-| Planning | Choose the project idea and divide responsibilities |
-| Research and Design | Research AI models and plan the application |
-| Development | Prepare recipe data and build the AI and recipe matching systems |
-| Integration | Combine everyone's work into the Streamlit application |
-| Testing and Finalization | Test the features, fix issues, and prepare the final submission |
+| Planning | Chose the project idea, divided team responsibilities, and set up GitHub |
+| Research and Design | Researched AI models, planned the recipe matching system, and created the project design |
+| Development | Built the image recognition system, prepared the recipe dataset, and developed the Streamlit interface |
+| Integration | Combined everyone's code, added Gemini recognition, and improved the app's design and features |
+| Testing and Finalization | Tested ingredient detection and recipe recommendations, fixed issues, and updated the documentation for submission |
